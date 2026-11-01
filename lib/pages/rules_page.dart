@@ -1,0 +1,178 @@
+import 'package:flutter/material.dart';
+
+import '../theme/app_theme.dart';
+
+class RulesPage extends StatelessWidget {
+  const RulesPage({super.key});
+
+  static const _sections = <(String, String, String)>[
+    ('单张', '任意一张牌', '3 < 4 < … < A < 2 < 小王 < 大王'),
+    ('对子', '两张点数相同的牌', '如 77、AA'),
+    ('三张', '三张点数相同的牌', '如 888'),
+    ('三带一', '三张 + 任意单张', '如 999 + 4'),
+    ('三带二', '三张 + 任意对子', '如 999 + 44'),
+    ('顺子', '五张及以上连续单牌，不含 2 和王', '如 34567、10JQKA'),
+    ('连对', '三对及以上连续对子，不含 2 和王', '如 334455、QQKKAA'),
+    ('飞机', '两组及以上连续三张，不含 2 和王', '如 333444、555666777'),
+    ('飞机带单', '飞机 + 等量单张翅膀', '如 333444 + 5 + 6'),
+    ('飞机带对', '飞机 + 等量对子翅膀', '如 333444 + 55 + 66'),
+    ('四带二', '四张 + 任意两张单牌', '如 8888 + 3 + 4'),
+    ('四带两对', '四张 + 两对', '如 8888 + 33 + 44'),
+    ('炸弹', '四张点数相同的牌，可压普通牌型', '如 9999'),
+    ('王炸', '小王 + 大王，最大牌型', '小王 + 大王'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('玩法说明')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _intro(context),
+          const SizedBox(height: 16),
+          Text('牌型', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          for (final section in _sections) ...[
+            _RuleRow(title: section.$1, rule: section.$2, example: section.$3),
+            const SizedBox(height: 8),
+          ],
+          const SizedBox(height: 8),
+          _scoreNote(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _intro(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [scheme.primaryContainer, scheme.surface],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.casino_outlined, size: 20, color: kGold),
+              const SizedBox(width: 8),
+              Text('三人斗地主', style: Theme.of(context).textTheme.titleMedium),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '一副 54 张牌，三人各摸 17 张，留 3 张底牌。'
+            '叫到地主的一方拿走底牌，独自对抗两名农民。'
+            '地主先出完牌即获胜；任意一名农民先出完牌，农民方获胜。',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.7,
+              color: scheme.onSurface.withValues(alpha: 0.78),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _scoreNote(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: scheme.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('计分', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 6),
+          Text(
+            '初始倍数 ×1。每出现一次炸弹或王炸翻倍；地主春天（农民一张未出）'
+            '或农民反春天（地主只出过一手）再翻倍。'
+            '地主获胜得 2×倍数，每名农民扣 1×倍数；农民获胜则相反。',
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.7,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RuleRow extends StatelessWidget {
+  const _RuleRow({
+    required this.title,
+    required this.rule,
+    required this.example,
+  });
+
+  final String title;
+  final String rule;
+  final String example;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.outline),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 66,
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: kGold,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  rule,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.5,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  example,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
