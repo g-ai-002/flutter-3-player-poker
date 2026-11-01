@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_3_player_poker/models/hand_record.dart';
+import 'package:flutter_3_player_poker/models/playing_card.dart';
 import 'package:flutter_3_player_poker/pages/game/game_overlays.dart';
 import 'package:flutter_3_player_poker/pages/game_page.dart';
 import 'package:flutter_3_player_poker/pages/hand_history_page.dart';
@@ -13,6 +14,7 @@ import 'package:flutter_3_player_poker/services/hand_history_service.dart';
 import 'package:flutter_3_player_poker/services/stats_service.dart';
 import 'package:flutter_3_player_poker/services/storage_service.dart';
 import 'package:flutter_3_player_poker/theme/app_theme.dart';
+import 'package:flutter_3_player_poker/widgets/played_cards_view.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -140,6 +142,25 @@ void main() {
     }
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('出牌区在窄屏展示长牌型不溢出', (tester) async {
+    final cards = [
+      for (var i = 0; i < 20; i++)
+        PlayingCard(id: i, rank: 3 + i % 12, suit: CardSuit.spade),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(width: 72, child: PlayedCardsView(cards: cards)),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('牌桌在平板与桌面尺寸无溢出', (tester) async {

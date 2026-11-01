@@ -78,7 +78,7 @@ class SettingsPage extends StatelessWidget {
                         const Text('深色模式', style: TextStyle(fontSize: 14)),
                         const SizedBox(height: 3),
                         Text(
-                          '牌桌始终使用深色绒面，其余页面跟随系统偏好',
+                          '牌桌始终使用深色绒面，其余页面跟随此开关',
                           style: TextStyle(
                             fontSize: 11,
                             color: Theme.of(context)

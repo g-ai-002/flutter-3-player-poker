@@ -2,13 +2,16 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
+import '../utils/constants.dart';
 import 'log_service.dart';
 
 /// 文件系统服务：解析用户目录与日志目录、打开系统文件管理器。
 class FileSystemService {
   FileSystemService._(this.appDirName);
 
-  static final FileSystemService instance = FileSystemService._('FlutterDdz');
+  static final FileSystemService instance = FileSystemService._(
+    AppConstants.appDirName,
+  );
 
   /// 应用数据目录名（位于 Documents 或应用外部存储下）
   final String appDirName;

@@ -66,17 +66,24 @@ class PlayedCardsView extends StatelessWidget {
                     cardWidth * 0.62,
                     math.max(8.0, (width - cardWidth) / (count - 1)),
                   );
-            return SizedBox(
-              width: cardWidth + spacing * (count - 1),
-              height: cardWidth * 1.4,
-              child: Stack(
-                children: [
-                  for (var i = 0; i < count; i++)
-                    Positioned(
-                      left: i * spacing,
-                      child: PlayingCardView(card: cards[i], width: cardWidth),
-                    ),
-                ],
+            // 长牌型（如带翅膀的飞机）在窄屏上按比例缩小，避免横向溢出。
+            return FittedBox(
+              fit: BoxFit.scaleDown,
+              child: SizedBox(
+                width: cardWidth + spacing * (count - 1),
+                height: cardWidth * 1.4,
+                child: Stack(
+                  children: [
+                    for (var i = 0; i < count; i++)
+                      Positioned(
+                        left: i * spacing,
+                        child: PlayingCardView(
+                          card: cards[i],
+                          width: cardWidth,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             );
           },
