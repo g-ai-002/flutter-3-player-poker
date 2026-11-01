@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter_3_player_poker/game/ai_player.dart';
 import 'package:flutter_3_player_poker/game/combo_detector.dart';
 import 'package:flutter_3_player_poker/game/game_engine.dart';
+import 'package:flutter_3_player_poker/models/app_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
@@ -108,6 +109,48 @@ void main() {
       );
       final hint = AiPlayer(random: Random(2)).hint(engine)!;
       expect(hint.any((card) => card.isJoker), isFalse);
+    });
+  });
+
+  group('AI 明牌策略', () {
+    DdzEngine doublingEngine({required int landlord}) {
+      final engine = DdzEngine(random: Random(41));
+      engine.start();
+      engine.currentPlayer = landlord;
+      expect(engine.bid(landlord, 1), isTrue);
+      while (engine.phase == GamePhase.bidding) {
+        engine.bid(engine.currentPlayer, 0);
+      }
+      return engine;
+    }
+
+    test('高手地主手牌足够强时明牌，普通难度不明牌', () {
+      final engine = doublingEngine(landlord: 0);
+      engine.players[0].hand
+        ..clear()
+        ..addAll(handOf('17 16 15 15 15 15 14 14 14 14'));
+
+      final ai = AiPlayer(random: Random(3), level: AiLevel.hard);
+      expect(ai.shouldReveal(engine), isTrue);
+
+      ai.level = AiLevel.normal;
+      expect(ai.shouldReveal(engine), isFalse);
+    });
+
+    test('牌力不足或不是地主时不明牌', () {
+      final engine = doublingEngine(landlord: 0);
+      engine.players[0].hand
+        ..clear()
+        ..addAll(handOf('3 4 5 6 7 8 9 10'));
+
+      final ai = AiPlayer(random: Random(3), level: AiLevel.hard);
+      expect(ai.shouldReveal(engine), isFalse);
+
+      engine.players[0].hand
+        ..clear()
+        ..addAll(handOf('17 16 15 15 15 15 14 14 14 14'));
+      engine.currentPlayer = 1;
+      expect(ai.shouldReveal(engine), isFalse);
     });
   });
 }

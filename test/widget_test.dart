@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_3_player_poker/models/hand_record.dart';
 import 'package:flutter_3_player_poker/pages/game/game_overlays.dart';
 import 'package:flutter_3_player_poker/pages/game_page.dart';
+import 'package:flutter_3_player_poker/pages/hand_history_page.dart';
+import 'package:flutter_3_player_poker/pages/hand_record_page.dart';
 import 'package:flutter_3_player_poker/pages/home_page.dart';
 import 'package:flutter_3_player_poker/pages/settings_page.dart';
 import 'package:flutter_3_player_poker/pages/stats_page.dart';
 import 'package:flutter_3_player_poker/providers/game_provider.dart';
 import 'package:flutter_3_player_poker/providers/settings_provider.dart';
+import 'package:flutter_3_player_poker/services/hand_history_service.dart';
 import 'package:flutter_3_player_poker/services/stats_service.dart';
 import 'package:flutter_3_player_poker/services/storage_service.dart';
 import 'package:flutter_3_player_poker/theme/app_theme.dart';
@@ -47,6 +51,7 @@ void main() {
 
   setUp(() {
     StatsService.instance.resetForTest();
+    HandHistoryService.instance.resetForTest();
   });
 
   testWidgets('主页展示入口与生涯概览', (tester) async {
@@ -63,6 +68,7 @@ void main() {
     expect(find.text('开始对局'), findsOneWidget);
     expect(find.text('玩法说明'), findsOneWidget);
     expect(find.text('数据统计'), findsOneWidget);
+    expect(find.text('牌谱'), findsOneWidget);
     expect(find.text('设置'), findsOneWidget);
     expect(find.text('胜率'), findsOneWidget);
   });
@@ -189,6 +195,35 @@ void main() {
     expect(find.byType(ScoreBoard), findsOneWidget);
     expect(find.text('+12'), findsNWidgets(2));
     expect(find.text('-6'), findsNWidgets(2));
+    expect(find.text('查看本局牌谱'), findsOneWidget);
+  });
+
+  testWidgets('小屏横屏结算浮层可滚动且无溢出', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 0);
+    addTearDown(game.dispose);
+    game.newGame();
+    takeLandlord(game);
+    game.engine.players[0].hand
+      ..clear()
+      ..add(game.engine.bottomCards.first);
+    game.engine.currentPlayer = 0;
+    game.engine.lastCombo = null;
+    game.toggleCard(game.humanHand.single.id);
+    game.playSelected();
+
+    tester.view.physicalSize = const Size(640, 320);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('再来一局'), findsOneWidget);
+    expect(find.text('查看本局牌谱'), findsOneWidget);
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
   });
 
   testWidgets('设置页展示主题、AI 难度与速度选项', (tester) async {
@@ -256,5 +291,99 @@ void main() {
     expect(find.text('生涯战绩'), findsOneWidget);
     expect(find.text('0 局'), findsOneWidget);
     expect(find.text('总对局'), findsOneWidget);
+  });
+
+  testWidgets('地主可在加倍前明牌，倍数同步翻倍', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 10000);
+    addTearDown(game.dispose);
+    game.newGame();
+    game.engine.currentPlayer = 0;
+    game.bid(3);
+
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('是否加倍？'), findsWidgets);
+    expect(find.text('明牌 ×2（亮出全部手牌）'), findsOneWidget);
+
+    await tester.tap(find.text('明牌 ×2（亮出全部手牌）'));
+    await tester.pump();
+
+    expect(game.engine.revealed, isTrue);
+    expect(game.engine.multiplier, 6);
+    expect(find.text('已明牌 · 倍数 ×2'), findsOneWidget);
+    game.stop();
+  });
+
+  testWidgets('AI 地主明牌后牌桌展示标记并可查看手牌', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 10000);
+    addTearDown(game.dispose);
+    game.newGame();
+    game.engine.currentPlayer = 1;
+    game.engine.bid(1, 3);
+    game.engine.revealHand(1);
+    while (game.engine.phase == GamePhase.doubling) {
+      game.engine.doubleUp(game.engine.currentPlayer, false);
+    }
+
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('地主已明牌 · 点击其座位查看手牌'), findsOneWidget);
+    expect(find.text('明牌'), findsOneWidget);
+
+    await tester.tap(find.text('明牌'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('小智 · 明牌'), findsOneWidget);
+    expect(find.text('关闭'), findsOneWidget);
+    game.stop();
+  });
+
+  testWidgets('牌谱页空态与详情展示', (tester) async {
+    final settings = await makeSettings();
+
+    await tester.pumpWidget(
+      wrapApp(const HandHistoryPage(), settings: settings),
+    );
+    await tester.pump();
+    expect(find.text('还没有牌谱'), findsOneWidget);
+
+    final record = HandRecord(
+      id: 'demo',
+      startedAt: DateTime(2026, 11, 1, 21),
+      endedAt: DateTime(2026, 11, 1, 21, 8),
+      humanIsLandlord: true,
+      landlordName: '你',
+      landlordWon: true,
+      baseScore: 3,
+      multiplier: 6,
+      spring: false,
+      antiSpring: false,
+      revealed: true,
+      scores: const [12, -6, -6],
+      playerNames: const ['你', '小智', '阿福'],
+      bottomCards: const [],
+      actions: const [
+        HandAction(player: 0, type: HandActionType.bid, text: '你 叫 3 分'),
+        HandAction(player: 0, type: HandActionType.reveal, text: '你 明牌，倍数 ×6'),
+      ],
+    );
+    await tester.pumpWidget(
+      wrapApp(HandRecordPage(record: record), settings: settings),
+    );
+    await tester.pump();
+
+    expect(find.text('牌谱详情'), findsOneWidget);
+    expect(find.text('出牌记录'), findsOneWidget);
+    expect(find.text('你 叫 3 分'), findsOneWidget);
+    expect(find.text('你 明牌，倍数 ×6'), findsOneWidget);
+    expect(find.text('复制牌谱'), findsOneWidget);
   });
 }

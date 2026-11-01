@@ -41,6 +41,33 @@ class FileSystemService {
   /// 日志根目录路径（Web 端为空串，调用方无需感知 Directory 类型）。
   Future<String> getLogRootPath() async => (await getLogRoot()).path;
 
+  /// 牌谱导出目录：`<Documents 或 external>/<appDirName>/exports`
+  Future<Directory> getExportRoot() async {
+    final base = await _baseDir();
+    final dir = Directory(
+      '${base.path}${Platform.pathSeparator}$appDirName'
+      '${Platform.pathSeparator}exports',
+    );
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return dir;
+  }
+
+  /// 写入文本文件，返回完整路径；失败返回 null。
+  Future<String?> saveExport(String fileName, String content) async {
+    try {
+      final dir = await getExportRoot();
+      final file = File('${dir.path}${Platform.pathSeparator}$fileName');
+      await file.writeAsString(content, flush: true);
+      LogService.info('已导出文件: ${file.path}');
+      return file.path;
+    } catch (e, stack) {
+      LogService.error('导出文件失败: $fileName', e, stack);
+      return null;
+    }
+  }
+
   /// 打开系统文件管理器定位到目录（桌面端），失败返回 false
   Future<bool> openDirectory(String path) async {
     try {

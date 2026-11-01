@@ -21,6 +21,15 @@ class _EagerDoubleAi extends AiPlayer {
   bool shouldDouble(DdzEngine engine) => engine.currentPlayer == 1;
 }
 
+/// 地主回合先明牌再选择不加倍。
+class _RevealAi extends AiPlayer {
+  @override
+  bool shouldReveal(DdzEngine engine) => true;
+
+  @override
+  bool shouldDouble(DdzEngine engine) => false;
+}
+
 /// 只拒绝 AI（玩家 1）的第一次加倍，其余正常放行。
 class _RejectAiDoubleEngine extends DdzEngine {
   _RejectAiDoubleEngine({super.random});
@@ -102,6 +111,27 @@ void main() {
     expect(engine.doublingIndex, greaterThanOrEqualTo(2));
     expect(
       LogService.getRecentLogs().any((line) => line.contains('降级为不加倍')),
+      isTrue,
+    );
+  });
+
+  testWidgets('AI 地主在加倍前明牌并继续推进', (tester) async {
+    final engine = DdzEngine(random: Random(4));
+    engine.start();
+    engine.currentPlayer = 1;
+    expect(engine.bid(1, 3), isTrue);
+    expect(engine.phase, GamePhase.doubling);
+    final driver = makeDriver(engine, ai: _RevealAi());
+    addTearDown(driver.dispose);
+
+    driver.schedule();
+    await tester.pump(const Duration(milliseconds: 1));
+
+    expect(engine.revealed, isTrue);
+    expect(engine.multiplier, 6);
+    expect(engine.currentPlayer, 0);
+    expect(
+      LogService.getRecentLogs().any((line) => line.contains('明牌')),
       isTrue,
     );
   });

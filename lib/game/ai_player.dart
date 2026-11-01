@@ -67,6 +67,13 @@ class AiPlayer {
     return want;
   }
 
+  /// 明牌决策：只有高手地主会亮牌，手牌足够强时才用翻倍换压力。
+  bool shouldReveal(DdzEngine engine) {
+    final player = engine.current;
+    if (level != AiLevel.hard || !player.isLandlord) return false;
+    return _strength(player.hand) >= 9.0;
+  }
+
   /// 当前玩家的决策；返回 null 表示不出。
   List<PlayingCard>? choose(DdzEngine engine) {
     final player = engine.current;

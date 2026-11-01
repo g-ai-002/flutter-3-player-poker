@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'pages/home_page.dart';
 import 'providers/game_provider.dart';
 import 'providers/settings_provider.dart';
+import 'services/hand_history_service.dart';
 import 'services/log_service.dart';
 import 'services/logging_init.dart';
 import 'services/stats_service.dart';
@@ -22,6 +23,7 @@ Future<void> main() async {
   final storage = await StorageService.instance;
   await initLogging();
   await StatsService.instance.load();
+  await HandHistoryService.instance.load();
   LogService.info('应用启动: ${AppConstants.appName} v${AppConstants.version}');
 
   FlutterError.onError = (details) {

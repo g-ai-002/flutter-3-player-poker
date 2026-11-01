@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../utils/constants.dart';
 import '../widgets/playing_card_view.dart';
 import 'game_page.dart';
+import 'hand_history_page.dart';
 import 'rules_page.dart';
 import 'settings_page.dart';
 import 'stats_page.dart';
@@ -89,7 +90,7 @@ class HomePage extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: _NavTile(
                             icon: Icons.insights_outlined,
@@ -101,7 +102,19 @@ class HomePage extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _NavTile(
+                            icon: Icons.receipt_long_outlined,
+                            label: '牌谱',
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const HandHistoryPage(),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: _NavTile(
                             icon: Icons.tune,

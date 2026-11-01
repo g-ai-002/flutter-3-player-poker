@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../providers/game_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/table_overlay.dart';
+import '../hand_record_page.dart';
 
 /// 叫分浮层：轮到人类玩家时覆盖牌桌。
 class BidOverlay extends StatelessWidget {
@@ -95,10 +96,11 @@ class DoubleOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final engine = provider.engine;
+    final isLandlord = engine.landlord == 0;
     return TableOverlay(
       onLeave: onLeave,
       child: TablePanel(
-        maxWidth: 320,
+        maxWidth: 330,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -121,6 +123,28 @@ class DoubleOverlay extends StatelessWidget {
                 height: 1.7,
               ),
             ),
+            if (isLandlord) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: provider.canReveal ? provider.revealHand : null,
+                  style: tableGhostButtonStyle(
+                    enabled: provider.canReveal,
+                    foreground: kGoldSoft,
+                  ),
+                  icon: Icon(
+                    provider.canReveal
+                        ? Icons.visibility_outlined
+                        : Icons.check_circle_outline,
+                    size: 16,
+                  ),
+                  label: Text(
+                    provider.canReveal ? '明牌 ×2（亮出全部手牌）' : '已明牌 · 倍数 ×2',
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             Row(
               children: [
@@ -176,91 +200,120 @@ class ResultOverlay extends StatelessWidget {
       onLeave: onLeave,
       barrierOpacity: 0.58,
       showClose: false,
-      child: TablePanel(
-        padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
-        radius: 20,
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1B3C29), Color(0xFF0E2419)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height - 24,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              won ? Icons.emoji_events_rounded : Icons.handshake_outlined,
-              size: 44,
-              color: won ? kGold : Colors.white54,
+        child: SingleChildScrollView(
+          child: TablePanel(
+            padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
+            radius: 20,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1B3C29), Color(0xFF0E2419)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
             ),
-            const SizedBox(height: 8),
-            Text(
-              won ? '胜利' : '惜败',
-              style: TextStyle(
-                color: won ? kGoldSoft : Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${tags.join(' · ')} · 倍数 ×${result.multiplier}',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 11,
-              ),
-            ),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    '本局得分',
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    '${score >= 0 ? '+' : ''}$score',
-                    style: TextStyle(
-                      color: score >= 0 ? kGoldSoft : const Color(0xFFE08A7A),
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            ScoreBoard(provider: provider),
-            const SizedBox(height: 18),
-            Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onLeave,
-                    style: tableGhostButtonStyle(
-                      foreground: Colors.white.withValues(alpha: 0.7),
-                    ),
-                    child: const Text('返回主页'),
+                Icon(
+                  won ? Icons.emoji_events_rounded : Icons.handshake_outlined,
+                  size: 44,
+                  color: won ? kGold : Colors.white54,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  won ? '胜利' : '惜败',
+                  style: TextStyle(
+                    color: won ? kGoldSoft : Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: onRestart,
-                    style: goldButtonStyle(),
-                    child: const Text('再来一局'),
+                const SizedBox(height: 6),
+                Text(
+                  '${tags.join(' · ')} · 倍数 ×${result.multiplier}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 11,
                   ),
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        '本局得分',
+                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '${score >= 0 ? '+' : ''}$score',
+                        style: TextStyle(
+                          color: score >= 0
+                              ? kGoldSoft
+                              : const Color(0xFFE08A7A),
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ScoreBoard(provider: provider),
+                if (provider.lastRecord != null) ...[
+                  const SizedBox(height: 4),
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            HandRecordPage(record: provider.lastRecord!),
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: kGoldSoft,
+                      textStyle: const TextStyle(fontSize: 12),
+                    ),
+                    icon: const Icon(Icons.receipt_long_outlined, size: 16),
+                    label: const Text('查看本局牌谱'),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: onLeave,
+                        style: tableGhostButtonStyle(
+                          foreground: Colors.white.withValues(alpha: 0.7),
+                        ),
+                        child: const Text('返回主页'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: onRestart,
+                        style: goldButtonStyle(),
+                        child: const Text('再来一局'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

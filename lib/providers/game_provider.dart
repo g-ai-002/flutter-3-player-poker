@@ -7,9 +7,12 @@ import '../game/ai_player.dart';
 import '../game/combo.dart';
 import '../game/combo_detector.dart';
 import '../game/game_engine.dart';
+import '../game/hand_recorder.dart';
 import '../game/table_events.dart';
 import '../game/turn_driver.dart';
+import '../models/hand_record.dart';
 import '../models/playing_card.dart';
+import '../services/hand_history_service.dart';
 import '../services/log_service.dart';
 import '../services/stats_service.dart';
 import 'settings_provider.dart';
@@ -31,7 +34,11 @@ class GameProvider extends ChangeNotifier {
   }) : engine = engine ?? DdzEngine(),
        ai = ai ?? AiPlayer(),
        events = events ?? TableEventBus() {
-    announcer = ActionAnnouncer(engine: this.engine, events: this.events);
+    announcer = ActionAnnouncer(
+      engine: this.engine,
+      events: this.events,
+      recorder: recorder,
+    );
     driver = TurnDriver(
       engine: this.engine,
       ai: this.ai,
@@ -50,6 +57,9 @@ class GameProvider extends ChangeNotifier {
   final AiPlayer ai;
   final TableEventBus events;
 
+  /// 本局牌谱记录器，新对局开始时重置。
+  final HandRecorder recorder = HandRecorder();
+
   late final ActionAnnouncer announcer;
   late final TurnDriver driver;
 
@@ -60,6 +70,7 @@ class GameProvider extends ChangeNotifier {
   Timer? _feedbackTimer;
   String? _feedback;
   bool _statsRecorded = false;
+  HandRecord? _lastRecord;
 
   List<PlayingCard> get humanHand => engine.players[0].hand;
   Set<int> get selectedIds => Set.unmodifiable(_selectedIds);
@@ -70,6 +81,16 @@ class GameProvider extends ChangeNotifier {
   bool get isHumanTurn => engine.isHumanTurn;
   bool get canPass => engine.isHumanTurn && engine.lastCombo != null;
   GameResult? get result => engine.result;
+
+  /// 本局牌谱；对局结束后生成，供结算页查看。
+  HandRecord? get lastRecord => _lastRecord;
+
+  /// 人类玩家是地主且尚未明牌时可明牌。
+  bool get canReveal =>
+      engine.phase == GamePhase.doubling &&
+      engine.currentPlayer == 0 &&
+      engine.landlord == 0 &&
+      !engine.revealed;
 
   List<PlayingCard> get selectedCards =>
       humanHand.where((card) => _selectedIds.contains(card.id)).toList();
@@ -113,6 +134,8 @@ class GameProvider extends ChangeNotifier {
     _feedback = null;
     _selectedIds.clear();
     _statsRecorded = false;
+    _lastRecord = null;
+    recorder.start();
     engine.start();
     LogService.info(
       '新对局开始，叫分顺序: ${engine.currentPlayer}，AI 难度: '
@@ -154,6 +177,14 @@ class GameProvider extends ChangeNotifier {
     driver.schedule();
   }
 
+  /// 明牌：地主亮出手牌，本局倍数 ×2；不影响当前回合归属。
+  void revealHand() {
+    if (!canReveal) return;
+    if (!engine.revealHand(0)) return;
+    announcer.reveal(0);
+    _notify();
+  }
+
   void toggleCard(int id) {
     if (!engine.isHumanTurn) return;
     if (!_selectedIds.remove(id)) {
@@ -171,7 +202,7 @@ class GameProvider extends ChangeNotifier {
       return;
     }
     _selectedIds.clear();
-    announcer.play(0, outcome.combo);
+    announcer.play(0, outcome.combo, text: outcome.text);
     _notify();
     driver.schedule();
   }
@@ -232,6 +263,10 @@ class GameProvider extends ChangeNotifier {
         humanIsLandlord: engine.players[0].isLandlord,
       ),
     );
+    final record = recorder.finish(engine);
+    if (record == null) return;
+    _lastRecord = record;
+    unawaited(HandHistoryService.instance.record(record));
   }
 
   @override

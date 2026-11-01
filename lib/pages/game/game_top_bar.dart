@@ -72,7 +72,9 @@ class GameTopBar extends StatelessWidget {
               border: Border.all(color: kGold.withValues(alpha: 0.35)),
             ),
             child: Text(
-              '倍数 ×${provider.engine.multiplier}',
+              provider.engine.revealed
+                  ? '明牌 · ×${provider.engine.multiplier}'
+                  : '倍数 ×${provider.engine.multiplier}',
               style: const TextStyle(
                 color: kGoldSoft,
                 fontSize: 11,

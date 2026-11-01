@@ -33,6 +33,9 @@ void main() {
           var doubles = 0;
           while (engine.phase == GamePhase.doubling && doubles < 5) {
             final actor = engine.currentPlayer;
+            if (ai.shouldReveal(engine)) {
+              expect(engine.revealHand(actor), isTrue);
+            }
             expect(engine.doubleUp(actor, ai.shouldDouble(engine)), isTrue);
             doubles++;
           }

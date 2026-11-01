@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../game/game_engine.dart';
 import '../../providers/game_provider.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/played_cards_view.dart';
 import '../../widgets/playing_card_view.dart';
 import '../../widgets/seat_panel.dart';
@@ -17,6 +18,52 @@ class GameTableArea extends StatelessWidget {
   final GameProvider provider;
   final bool landscape;
 
+  /// 明牌手牌浮层：地主亮牌后，农民可随时查看。
+  void _showRevealedHand(BuildContext context, PlayerState player) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${player.name} · 明牌'),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final card in player.hand)
+                  PlayingCardView(card: card, width: 36),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  SeatPanel _seatPanel(
+    BuildContext context,
+    GameProvider provider,
+    PlayerState player,
+  ) {
+    final revealed =
+        provider.engine.revealed && provider.engine.landlord == player.id;
+    return SeatPanel(
+      player: player,
+      isCurrent: provider.engine.currentPlayer == player.id,
+      thinking: provider.thinkingPlayer == player.id,
+      phase: provider.engine.phase,
+      revealed: revealed,
+      onTap: revealed ? () => _showRevealedHand(context, player) : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final engine = provider.engine;
@@ -27,7 +74,11 @@ class GameTableArea extends StatelessWidget {
         children: [
           Expanded(
             flex: 3,
-            child: _SideColumn(provider: provider, player: left, isLeft: true),
+            child: _SideColumn(
+              player: left,
+              isLeft: true,
+              seat: _seatPanel(context, provider, left),
+            ),
           ),
           Expanded(
             flex: 4,
@@ -50,9 +101,9 @@ class GameTableArea extends StatelessWidget {
           Expanded(
             flex: 3,
             child: _SideColumn(
-              provider: provider,
               player: right,
               isLeft: false,
+              seat: _seatPanel(context, provider, right),
             ),
           ),
         ],
@@ -67,22 +118,12 @@ class GameTableArea extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.only(left: 10, top: 2),
-                child: SeatPanel(
-                  player: left,
-                  isCurrent: engine.currentPlayer == 2,
-                  thinking: provider.thinkingPlayer == 2,
-                  phase: engine.phase,
-                ),
+                child: _seatPanel(context, provider, left),
               ),
               Expanded(child: BottomCards(engine: engine)),
               Padding(
                 padding: const EdgeInsets.only(right: 10, top: 2),
-                child: SeatPanel(
-                  player: right,
-                  isCurrent: engine.currentPlayer == 1,
-                  thinking: provider.thinkingPlayer == 1,
-                  phase: engine.phase,
-                ),
+                child: _seatPanel(context, provider, right),
               ),
             ],
           ),
@@ -132,14 +173,14 @@ class GameTableArea extends StatelessWidget {
 
 class _SideColumn extends StatelessWidget {
   const _SideColumn({
-    required this.provider,
     required this.player,
     required this.isLeft,
+    required this.seat,
   });
 
-  final GameProvider provider;
   final PlayerState player;
   final bool isLeft;
+  final SeatPanel seat;
 
   @override
   Widget build(BuildContext context) {
@@ -148,12 +189,7 @@ class _SideColumn extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SeatPanel(
-            player: player,
-            isCurrent: provider.engine.currentPlayer == player.id,
-            thinking: provider.thinkingPlayer == player.id,
-            phase: provider.engine.phase,
-          ),
+          seat,
           const SizedBox(height: 10),
           PlayedCardsView(
             cards: player.lastPlay,
@@ -203,10 +239,24 @@ class StatusInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final action = provider.engine.lastActionText;
+    final landlord = provider.engine.landlord;
+    final aiRevealed =
+        provider.engine.revealed && landlord != null && landlord != 0;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         TurnChip(text: provider.turnHint),
+        if (aiRevealed) ...[
+          const SizedBox(height: 4),
+          Text(
+            '地主已明牌 · 点击其座位查看手牌',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: kGoldSoft.withValues(alpha: 0.8),
+              fontSize: 9.5,
+            ),
+          ),
+        ],
         if (action != null && provider.phase != GamePhase.finished) ...[
           const SizedBox(height: 4),
           Text(

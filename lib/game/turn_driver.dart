@@ -119,6 +119,9 @@ class TurnDriver {
   void _aiDouble() {
     if (engine.phase != GamePhase.doubling) return;
     final actor = engine.currentPlayer;
+    if (ai.shouldReveal(engine) && engine.revealHand(actor)) {
+      announcer.reveal(actor);
+    }
     final doubled = ai.shouldDouble(engine);
     if (!engine.doubleUp(actor, doubled)) {
       LogService.warning('AI ${doubled ? '加倍' : '不加倍'}被拒绝，降级为不加倍');
@@ -148,7 +151,7 @@ class TurnDriver {
     } else {
       final outcome = engine.play(actor, cards);
       if (outcome.ok) {
-        announcer.play(actor, outcome.combo);
+        announcer.play(actor, outcome.combo, text: outcome.text);
         advanced = true;
       } else {
         LogService.error(
@@ -192,7 +195,7 @@ class TurnDriver {
       return false;
     }
     LogService.warning('$reason，兜底出最小单张 ${card.displayName}');
-    announcer.play(actor, outcome.combo);
+    announcer.play(actor, outcome.combo, text: outcome.text);
     return true;
   }
 

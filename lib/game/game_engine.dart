@@ -22,10 +22,14 @@ enum PlayError {
 }
 
 class PlayOutcome {
-  const PlayOutcome({this.error = PlayError.none, this.combo});
+  const PlayOutcome({this.error = PlayError.none, this.combo, this.text});
 
   final PlayError error;
   final Combo? combo;
+
+  /// 本次出牌的文案；终局时 [DdzEngine.lastActionText] 会被胜负文案覆盖，
+  /// 因此调用方需要保留出牌本身的描述。
+  final String? text;
 
   bool get ok => error == PlayError.none;
 }
@@ -104,6 +108,9 @@ class DdzEngine {
   String? lastActionText;
   GameResult? result;
 
+  /// 地主已明牌：手牌亮给两名农民，本局倍数 ×2。
+  bool revealed = false;
+
   /// 每个玩家本局的叫分（0 表示不叫）。
   final Map<int, int> bids = {};
 
@@ -143,6 +150,7 @@ class DdzEngine {
     multiplier = 1;
     result = null;
     lastActionText = null;
+    revealed = false;
     phase = GamePhase.bidding;
     trickSerial++;
 
@@ -204,6 +212,7 @@ class DdzEngine {
     landlord = playerId;
     baseScore = highestBid;
     multiplier = baseScore;
+    revealed = false;
     final player = players[playerId];
     player.isLandlord = true;
     player.hand.addAll(bottomCards);
@@ -217,6 +226,19 @@ class DdzEngine {
       ..add(nextPlayer(nextPlayer(playerId)));
     doublingIndex = 0;
     currentPlayer = playerId;
+  }
+
+  /// 明牌：地主在自己的加倍回合亮出手牌，本局倍数 ×2。
+  ///
+  /// 只有地主可以明牌，且每局仅一次；明牌后再选择是否加倍。
+  bool revealHand(int playerId) {
+    if (phase != GamePhase.doubling || currentPlayer != playerId) return false;
+    if (landlord != playerId || revealed) return false;
+    revealed = true;
+    multiplier *= 2;
+    lastActionText = '${players[playerId].name} 明牌，倍数 ×$multiplier';
+    turnSerial++;
+    return true;
   }
 
   /// 加倍：true 使本局倍数再 ×2。返回是否被接受。
@@ -280,21 +302,23 @@ class DdzEngine {
     lastCombo = combo;
     lastPlayer = playerId;
     passCount = 0;
+    final String actionText;
     if (combo.isBomb) {
       multiplier *= 2;
-      lastActionText = '${player.name} 打出${combo.description}，倍数 ×$multiplier';
+      actionText = '${player.name} 打出${combo.description}，倍数 ×$multiplier';
     } else {
-      lastActionText = '${player.name} 打出${combo.description}';
+      actionText = '${player.name} 打出${combo.description}';
     }
+    lastActionText = actionText;
 
     if (player.hand.isEmpty) {
       _finish(playerId);
-      return PlayOutcome(combo: combo);
+      return PlayOutcome(combo: combo, text: actionText);
     }
 
     currentPlayer = nextPlayer(playerId);
     turnSerial++;
-    return PlayOutcome(combo: combo);
+    return PlayOutcome(combo: combo, text: actionText);
   }
 
   PlayError pass(int playerId) {

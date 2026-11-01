@@ -11,6 +11,9 @@ class FileSystemService {
 
   Future<String> getLogRootPath() async => '';
 
+  /// 浏览器无法直接写入用户目录，牌谱改为复制到剪贴板。
+  Future<String?> saveExport(String fileName, String content) async => null;
+
   /// 浏览器无法打开系统文件管理器。
   Future<bool> openDirectory(String path) async => false;
 }

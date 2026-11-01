@@ -156,6 +156,61 @@ void main() {
     });
   });
 
+  group('明牌', () {
+    test('地主明牌使倍数翻倍，且不改变当前回合', () {
+      final engine = DdzEngine(random: Random(21));
+      engine.start();
+      final landlord = engine.currentPlayer;
+      engine.bid(landlord, 2);
+      while (engine.phase == GamePhase.bidding) {
+        engine.bid(engine.currentPlayer, 0);
+      }
+
+      expect(engine.revealed, isFalse);
+      expect(engine.revealHand(landlord), isTrue);
+      expect(engine.revealed, isTrue);
+      expect(engine.multiplier, 4);
+      expect(engine.currentPlayer, landlord);
+      expect(engine.phase, GamePhase.doubling);
+      expect(engine.lastActionText, contains('明牌'));
+
+      expect(engine.doubleUp(landlord, true), isTrue);
+      expect(engine.multiplier, 8);
+    });
+
+    test('只有地主能明牌，且每局仅一次', () {
+      final engine = DdzEngine(random: Random(22));
+      engine.start();
+      final landlord = engine.currentPlayer;
+      engine.bid(landlord, 1);
+      while (engine.phase == GamePhase.bidding) {
+        engine.bid(engine.currentPlayer, 0);
+      }
+      final farmer = (landlord + 1) % 3;
+
+      expect(engine.revealHand(farmer), isFalse);
+      expect(engine.revealHand(landlord), isTrue);
+      expect(engine.revealHand(landlord), isFalse);
+      expect(engine.multiplier, 2);
+    });
+
+    test('非加倍阶段不能明牌，重新开始后状态复位', () {
+      final engine = startedEngine();
+      expect(engine.phase, GamePhase.playing);
+      expect(engine.revealHand(0), isFalse);
+
+      final fresh = DdzEngine(random: Random(23));
+      fresh.start();
+      fresh.currentPlayer = 0;
+      fresh.bid(0, 3);
+      expect(fresh.revealHand(0), isTrue);
+      expect(fresh.revealed, isTrue);
+
+      fresh.start();
+      expect(fresh.revealed, isFalse);
+    });
+  });
+
   group('出牌流程', () {
     test('出牌后轮转到下家，非法牌型被拒绝', () {
       final engine = startedEngine();

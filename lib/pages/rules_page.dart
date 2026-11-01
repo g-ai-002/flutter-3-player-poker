@@ -93,6 +93,8 @@ class RulesPage extends StatelessWidget {
         _flowRow(scheme, '叫分', '叫分必须高于当前最高分，叫 3 分立即成为地主；都不叫则重新发牌。'),
         const SizedBox(height: 6),
         _flowRow(scheme, '加倍', '地主先选择是否加倍，两名农民随后各自选择，每次加倍倍数 ×2。'),
+        const SizedBox(height: 6),
+        _flowRow(scheme, '明牌', '地主可在自己的加倍回合亮出手牌，本局倍数再 ×2，对手能看到其剩余手牌。'),
       ],
     );
   }

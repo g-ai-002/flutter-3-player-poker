@@ -2,9 +2,11 @@ import 'package:flutter_3_player_poker/game/ai_player.dart';
 import 'package:flutter_3_player_poker/game/combo_detector.dart';
 import 'package:flutter_3_player_poker/game/game_engine.dart';
 import 'package:flutter_3_player_poker/models/app_settings.dart';
+import 'package:flutter_3_player_poker/models/hand_record.dart';
 import 'package:flutter_3_player_poker/models/playing_card.dart';
 import 'package:flutter_3_player_poker/providers/game_provider.dart';
 import 'package:flutter_3_player_poker/providers/settings_provider.dart';
+import 'package:flutter_3_player_poker/services/hand_history_service.dart';
 import 'package:flutter_3_player_poker/services/log_service.dart';
 import 'package:flutter_3_player_poker/services/storage_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -150,5 +152,55 @@ void main() {
     game.newGame();
     expect(game.ai.level, AiLevel.hard);
     game.stop();
+  });
+
+  test('地主明牌使倍数翻倍且只能明牌一次', () async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 0);
+    addTearDown(game.dispose);
+
+    game.newGame();
+    game.engine.currentPlayer = 0;
+    game.bid(3);
+    expect(game.engine.phase, GamePhase.doubling);
+    expect(game.canReveal, isTrue);
+
+    game.revealHand();
+    expect(game.engine.revealed, isTrue);
+    expect(game.engine.multiplier, 6);
+    expect(game.canReveal, isFalse);
+
+    game.revealHand();
+    expect(game.engine.multiplier, 6);
+    game.stop();
+  });
+
+  test('对局结束生成牌谱并写入历史', () async {
+    final settings = await makeSettings();
+    HandHistoryService.instance.resetForTest();
+    final game = GameProvider(settings: settings, aiDelayOverride: 0);
+    addTearDown(game.dispose);
+
+    game.newGame();
+    takeLandlord(game);
+    game.engine.players[0].hand
+      ..clear()
+      ..addAll(handOf('3'));
+    game.engine.currentPlayer = 0;
+    game.engine.lastCombo = null;
+
+    game.toggleCard(game.humanHand.single.id);
+    game.playSelected();
+    expect(game.engine.phase, GamePhase.finished);
+
+    final record = game.lastRecord;
+    expect(record, isNotNull);
+    expect(record!.humanIsLandlord, isTrue);
+    expect(record.spring, isTrue);
+    expect(
+      record.actions.any((action) => action.type == HandActionType.play),
+      isTrue,
+    );
+    expect(HandHistoryService.instance.records.single.id, record.id);
   });
 }
