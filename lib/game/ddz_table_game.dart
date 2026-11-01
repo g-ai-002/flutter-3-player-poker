@@ -12,9 +12,12 @@ import 'table_events.dart';
 ///
 /// 交互全部由 Flutter 组件承担，这里只负责视觉层，避免两套手势系统冲突。
 class DdzTableGame extends FlameGame {
-  DdzTableGame({required this.bus});
+  DdzTableGame({required this.bus, this.introDeal = false});
 
   final TableEventBus bus;
+
+  /// 进入牌桌时补一次发牌动画：首局的发牌事件在牌桌订阅之前就已发出。
+  final bool introDeal;
   late final DustLayer _dust;
 
   @override
@@ -26,6 +29,7 @@ class DdzTableGame extends FlameGame {
     _dust = DustLayer();
     add(_dust);
     bus.subscribe(_onEvent);
+    if (introDeal) _playDeal();
   }
 
   @override
@@ -53,19 +57,7 @@ class DdzTableGame extends FlameGame {
   void _onEvent(TableEvent event) {
     switch (event.type) {
       case TableEventType.deal:
-        for (var player = 0; player < 3; player++) {
-          for (var i = 0; i < 5; i++) {
-            add(
-              CardFlight(
-                card: null,
-                from: Offset(size.x * 0.5, size.y * 0.45),
-                to: seatPoint(player),
-                delay: 0.04 * (i * 3 + player),
-                duration: 0.36,
-              ),
-            );
-          }
-        }
+        _playDeal();
       case TableEventType.play:
         final cards = event.cards.take(8).toList();
         for (var i = 0; i < cards.length; i++) {
@@ -92,6 +84,22 @@ class DdzTableGame extends FlameGame {
       case TableEventType.pass:
       case TableEventType.bid:
         break;
+    }
+  }
+
+  void _playDeal() {
+    for (var player = 0; player < 3; player++) {
+      for (var i = 0; i < 5; i++) {
+        add(
+          CardFlight(
+            card: null,
+            from: Offset(size.x * 0.5, size.y * 0.45),
+            to: seatPoint(player),
+            delay: 0.04 * (i * 3 + player),
+            duration: 0.36,
+          ),
+        );
+      }
     }
   }
 }

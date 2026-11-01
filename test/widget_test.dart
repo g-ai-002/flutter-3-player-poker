@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_3_player_poker/pages/game/game_overlays.dart';
 import 'package:flutter_3_player_poker/pages/game_page.dart';
 import 'package:flutter_3_player_poker/pages/home_page.dart';
 import 'package:flutter_3_player_poker/pages/settings_page.dart';
@@ -123,6 +124,63 @@ void main() {
     }
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('牌桌在平板与桌面尺寸无溢出', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 0);
+    addTearDown(game.dispose);
+    game.newGame();
+    game.engine.currentPlayer = 0;
+    game.bid(true);
+
+    for (final size in [
+      const Size(768, 1024),
+      const Size(1024, 1366),
+      const Size(1440, 900),
+    ]) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(
+        wrapApp(const GamePage(), settings: settings, game: game),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(tester.takeException(), isNull, reason: 'size $size');
+      expect(find.text('出牌'), findsOneWidget);
+    }
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('结算浮层展示三家得分与再来一局', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 0);
+    addTearDown(game.dispose);
+
+    game.newGame();
+    game.engine.currentPlayer = 0;
+    game.bid(true);
+    game.engine.players[0].hand
+      ..clear()
+      ..add(game.engine.bottomCards.first);
+    game.engine.currentPlayer = 0;
+    game.engine.lastCombo = null;
+    game.toggleCard(game.engine.players[0].hand.first.id);
+    game.playSelected();
+
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('再来一局'), findsOneWidget);
+    expect(find.text('返回主页'), findsOneWidget);
+    expect(find.text('你 · 地主'), findsOneWidget);
+    expect(find.text('小智'), findsWidgets);
+    expect(find.text('阿福'), findsWidgets);
+    expect(find.byType(ScoreBoard), findsOneWidget);
+    expect(find.text('+4'), findsNWidgets(2));
+    expect(find.text('-2'), findsNWidgets(2));
   });
 
   testWidgets('设置页展示主题与 AI 速度选项', (tester) async {

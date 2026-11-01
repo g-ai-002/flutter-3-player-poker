@@ -19,6 +19,12 @@ class BidOverlay extends StatelessWidget {
         color: Colors.black.withValues(alpha: 0.45),
         child: Stack(
           children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {},
+              ),
+            ),
             Positioned(
               top: 8,
               right: 8,
@@ -135,118 +141,176 @@ class ResultOverlay extends StatelessWidget {
     return Positioned.fill(
       child: Container(
         color: Colors.black.withValues(alpha: 0.58),
-        child: Center(
-          child: Container(
-            width: math.min(340, MediaQuery.sizeOf(context).width - 40),
-            padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1B3C29), Color(0xFF0E2419)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {},
+          child: Center(
+            child: Container(
+              width: math.min(340, MediaQuery.sizeOf(context).width - 40),
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1B3C29), Color(0xFF0E2419)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: kGold.withValues(alpha: 0.45)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 30,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
               ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: kGold.withValues(alpha: 0.45)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 30,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  won ? Icons.emoji_events_rounded : Icons.handshake_outlined,
-                  size: 44,
-                  color: won ? kGold : Colors.white54,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  won ? '胜利' : '惜败',
-                  style: TextStyle(
-                    color: won ? kGoldSoft : Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 2,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    won ? Icons.emoji_events_rounded : Icons.handshake_outlined,
+                    size: 44,
+                    color: won ? kGold : Colors.white54,
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${tags.join(' · ')} · 倍数 ×${result.multiplier}',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 11,
+                  const SizedBox(height: 8),
+                  Text(
+                    won ? '胜利' : '惜败',
+                    style: TextStyle(
+                      color: won ? kGoldSoft : Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 10,
+                  const SizedBox(height: 6),
+                  Text(
+                    '${tags.join(' · ')} · 倍数 ×${result.multiplier}',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 11,
+                    ),
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          '本局得分',
+                          style: TextStyle(color: Colors.white54, fontSize: 12),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '${score >= 0 ? '+' : ''}$score',
+                          style: TextStyle(
+                            color: score >= 0
+                                ? kGoldSoft
+                                : const Color(0xFFE08A7A),
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  const SizedBox(height: 12),
+                  ScoreBoard(provider: provider),
+                  const SizedBox(height: 18),
+                  Row(
                     children: [
-                      const Text(
-                        '本局得分',
-                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: onLeave,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white70,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.28),
+                            ),
+                          ),
+                          child: const Text('返回主页'),
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        '${score >= 0 ? '+' : ''}$score',
-                        style: TextStyle(
-                          color: score >= 0
-                              ? kGoldSoft
-                              : const Color(0xFFE08A7A),
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: onRestart,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: kGold,
+                            foregroundColor: const Color(0xFF2C1D04),
+                          ),
+                          child: const Text(
+                            '再来一局',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: onLeave,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white70,
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.28),
-                          ),
-                        ),
-                        child: const Text('返回主页'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: onRestart,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: kGold,
-                          foregroundColor: const Color(0xFF2C1D04),
-                        ),
-                        child: const Text(
-                          '再来一局',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 三家本局得分：地主与两名农民对照展示。
+class ScoreBoard extends StatelessWidget {
+  const ScoreBoard({super.key, required this.provider});
+
+  final GameProvider provider;
+
+  @override
+  Widget build(BuildContext context) {
+    final result = provider.result;
+    if (result == null) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          for (final player in provider.engine.players)
+            Expanded(
+              child: Column(
+                children: [
+                  Text(
+                    '${player.name}${player.isLandlord ? ' · 地主' : ''}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 10,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${result.scores[player.id] >= 0 ? '+' : ''}'
+                    '${result.scores[player.id]}',
+                    style: TextStyle(
+                      color: result.scores[player.id] >= 0
+                          ? kGoldSoft
+                          : const Color(0xFFE08A7A),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

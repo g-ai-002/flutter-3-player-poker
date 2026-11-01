@@ -26,7 +26,7 @@ class _GamePageState extends State<GamePage> {
   void initState() {
     super.initState();
     final provider = context.read<GameProvider>();
-    _table = DdzTableGame(bus: provider.events);
+    _table = DdzTableGame(bus: provider.events, introDeal: true);
     if (provider.phase == GamePhase.idle) {
       provider.newGame();
     }
