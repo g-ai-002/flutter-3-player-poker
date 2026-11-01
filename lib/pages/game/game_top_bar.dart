@@ -53,7 +53,9 @@ class GameTopBar extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '地主：$landlordName',
+                  '地主：$landlordName · 底分 ${provider.engine.baseScore}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.55),
                     fontSize: 10,

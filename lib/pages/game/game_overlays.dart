@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../providers/game_provider.dart';
 import '../../theme/app_theme.dart';
 
-/// 叫地主浮层：轮到人类玩家时覆盖牌桌。
+/// 叫分浮层：轮到人类玩家时覆盖牌桌。
 class BidOverlay extends StatelessWidget {
   const BidOverlay({super.key, required this.provider, required this.onLeave});
 
@@ -14,6 +14,7 @@ class BidOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final highest = provider.engine.highestBid;
     return Positioned.fill(
       child: Container(
         color: Colors.black.withValues(alpha: 0.45),
@@ -37,7 +38,142 @@ class BidOverlay extends StatelessWidget {
             ),
             Center(
               child: Container(
-                width: math.min(330, MediaQuery.sizeOf(context).width - 40),
+                width: math.min(340, MediaQuery.sizeOf(context).width - 32),
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF14301F),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: kGold.withValues(alpha: 0.45)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      blurRadius: 24,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      '轮到你叫分',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      highest == 0 ? '尚无人叫分，叫分即底分' : '当前最高 $highest 分',
+                      style: TextStyle(
+                        color: kGoldSoft.withValues(alpha: 0.85),
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '叫 3 分直接成为地主；叫分最高者拿走 3 张底牌，以一敌二。',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.55),
+                        fontSize: 11,
+                        height: 1.6,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => provider.bid(0),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white70,
+                              side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.3),
+                              ),
+                              padding: EdgeInsets.zero,
+                            ),
+                            child: const Text('不叫'),
+                          ),
+                        ),
+                        for (final score in const [1, 2, 3]) ...[
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: score > highest
+                                  ? () => provider.bid(score)
+                                  : null,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: kGold,
+                                foregroundColor: const Color(0xFF2C1D04),
+                                disabledBackgroundColor: kGold.withValues(
+                                  alpha: 0.2,
+                                ),
+                                disabledForegroundColor: const Color(0xFF2C1D04)
+                                    .withValues(alpha: 0.45),
+                                padding: EdgeInsets.zero,
+                              ),
+                              child: Text(
+                                '$score 分',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 加倍浮层：地主先选，随后两名农民依次选择。
+class DoubleOverlay extends StatelessWidget {
+  const DoubleOverlay({
+    super.key,
+    required this.provider,
+    required this.onLeave,
+  });
+
+  final GameProvider provider;
+  final VoidCallback onLeave;
+
+  @override
+  Widget build(BuildContext context) {
+    final engine = provider.engine;
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.45),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {},
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                onPressed: onLeave,
+                icon: const Icon(Icons.close, size: 20),
+                color: Colors.white54,
+                tooltip: '离开',
+              ),
+            ),
+            Center(
+              child: Container(
+                width: math.min(320, MediaQuery.sizeOf(context).width - 40),
                 padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
                 decoration: BoxDecoration(
                   color: const Color(0xFF14301F),
@@ -55,7 +191,7 @@ class BidOverlay extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text(
-                      '轮到你叫地主',
+                      '是否加倍？',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
@@ -64,12 +200,13 @@ class BidOverlay extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '王、2 和炸弹越多，叫地主越有优势。\n成为地主可拿走 3 张底牌，并以一敌二。',
+                      '底分 ${engine.baseScore} · 当前倍数 ×${engine.multiplier}\n'
+                      '加倍后本局倍数再 ×2，胜负得分同步翻倍。',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 12,
-                        height: 1.6,
+                        height: 1.7,
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -77,26 +214,26 @@ class BidOverlay extends StatelessWidget {
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () => provider.bid(false),
+                            onPressed: () => provider.doubleUp(false),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.white70,
                               side: BorderSide(
                                 color: Colors.white.withValues(alpha: 0.3),
                               ),
                             ),
-                            child: const Text('不叫'),
+                            child: const Text('不加倍'),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: FilledButton(
-                            onPressed: () => provider.bid(true),
+                            onPressed: () => provider.doubleUp(true),
                             style: FilledButton.styleFrom(
                               backgroundColor: kGold,
                               foregroundColor: const Color(0xFF2C1D04),
                             ),
                             child: const Text(
-                              '叫地主',
+                              '加倍',
                               style: TextStyle(fontWeight: FontWeight.w700),
                             ),
                           ),

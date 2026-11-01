@@ -73,8 +73,11 @@ class GameProvider extends ChangeNotifier {
         if (res == null) return '对局结束';
         return res.landlordWon ? '地主获胜' : '农民获胜';
       case GamePhase.bidding:
-        if (engine.currentPlayer == 0) return '轮到你叫地主';
-        return '${engine.players[engine.currentPlayer].name} 正在叫牌…';
+        if (engine.currentPlayer == 0) return '轮到你叫分';
+        return '${engine.players[engine.currentPlayer].name} 正在叫分…';
+      case GamePhase.doubling:
+        if (engine.currentPlayer == 0) return '是否加倍？';
+        return '${engine.players[engine.currentPlayer].name} 正在考虑加倍…';
       case GamePhase.playing:
         if (engine.currentPlayer == 0) {
           return engine.lastCombo == null ? '轮到你出牌 · 自由领出' : '轮到你出牌';
@@ -90,8 +93,11 @@ class GameProvider extends ChangeNotifier {
     _selectedIds.clear();
     _thinkingPlayer = null;
     _statsRecorded = false;
+    ai.level = settings.aiLevel;
     engine.start();
-    LogService.info('新对局开始，叫地主顺序: ${engine.currentPlayer}');
+    LogService.info(
+      '新对局开始，叫分顺序: ${engine.currentPlayer}，AI 难度: ${ai.level.label}',
+    );
     events.emit(const TableEvent(type: TableEventType.deal));
     notifyListeners();
     _schedule();
@@ -102,6 +108,7 @@ class GameProvider extends ChangeNotifier {
     _feedbackTimer?.cancel();
     _thinkingPlayer = null;
     if (engine.phase == GamePhase.bidding ||
+        engine.phase == GamePhase.doubling ||
         engine.phase == GamePhase.playing) {
       engine.phase = GamePhase.idle;
     }
@@ -109,17 +116,27 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void bid(bool call) {
+  /// 叫分：0 不叫，1-3 分。
+  void bid(int score) {
     if (engine.phase != GamePhase.bidding || engine.currentPlayer != 0) return;
-    engine.bid(0, call);
+    if (!engine.bid(0, score)) return;
     events.emit(
       TableEvent(
         type: TableEventType.bid,
         player: 0,
-        text: call ? '叫地主' : '不叫',
+        text: score == 0 ? '不叫' : '叫 $score 分',
       ),
     );
-    LogService.info('玩家${call ? '叫地主' : '不叫'}');
+    LogService.info('玩家${score == 0 ? '不叫' : '叫 $score 分'}');
+    notifyListeners();
+    _schedule();
+  }
+
+  /// 加倍：仅加倍阶段轮到人类玩家时可用。
+  void doubleUp(bool doubled) {
+    if (engine.phase != GamePhase.doubling || engine.currentPlayer != 0) return;
+    if (!engine.doubleUp(0, doubled)) return;
+    LogService.info('玩家${doubled ? '加倍' : '不加倍'}');
     notifyListeners();
     _schedule();
   }
@@ -183,6 +200,7 @@ class GameProvider extends ChangeNotifier {
 
   void _schedule() {
     _timer?.cancel();
+    ai.level = settings.aiLevel;
     switch (engine.phase) {
       case GamePhase.redeal:
         _thinkingPlayer = null;
@@ -197,6 +215,7 @@ class GameProvider extends ChangeNotifier {
       case GamePhase.idle:
         return;
       case GamePhase.bidding:
+      case GamePhase.doubling:
       case GamePhase.playing:
         if (engine.currentPlayer == 0) {
           _thinkingPlayer = null;
@@ -211,10 +230,15 @@ class GameProvider extends ChangeNotifier {
       milliseconds: aiDelayOverride ?? settings.aiSpeed.delayMs,
     );
     _timer = Timer(delay, () {
-      if (engine.phase == GamePhase.bidding) {
-        _aiBid();
-      } else if (engine.phase == GamePhase.playing) {
-        _aiPlay();
+      switch (engine.phase) {
+        case GamePhase.bidding:
+          _aiBid();
+        case GamePhase.doubling:
+          _aiDouble();
+        case GamePhase.playing:
+          _aiPlay();
+        default:
+          break;
       }
     });
   }
@@ -222,17 +246,36 @@ class GameProvider extends ChangeNotifier {
   void _aiBid() {
     if (engine.phase != GamePhase.bidding) return;
     final actor = engine.currentPlayer;
-    final call = ai.shouldCall(engine.players[actor].hand);
-    engine.bid(actor, call);
+    final score = ai.bidScore(engine);
+    engine.bid(actor, score);
     _thinkingPlayer = null;
     events.emit(
       TableEvent(
         type: TableEventType.bid,
         player: actor,
-        text: call ? '叫地主' : '不叫',
+        text: score == 0 ? '不叫' : '叫 $score 分',
       ),
     );
-    LogService.info('AI ${engine.players[actor].name} ${call ? '叫地主' : '不叫'}');
+    LogService.info(
+      'AI ${engine.players[actor].name} ${score == 0 ? '不叫' : '叫 $score 分'}',
+    );
+    notifyListeners();
+    _schedule();
+  }
+
+  void _aiDouble() {
+    if (engine.phase != GamePhase.doubling) return;
+    final actor = engine.currentPlayer;
+    final doubled = ai.shouldDouble(engine);
+    if (!engine.doubleUp(actor, doubled)) {
+      LogService.error('AI 加倍被拒绝: 玩家 $actor');
+      notifyListeners();
+      return;
+    }
+    _thinkingPlayer = null;
+    LogService.info(
+      'AI ${engine.players[actor].name} ${doubled ? '加倍' : '不加倍'}',
+    );
     notifyListeners();
     _schedule();
   }

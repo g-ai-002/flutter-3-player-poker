@@ -35,6 +35,7 @@ class _GamePageState extends State<GamePage> {
   Future<void> _leave() async {
     final provider = context.read<GameProvider>();
     if (provider.phase == GamePhase.bidding ||
+        provider.phase == GamePhase.doubling ||
         provider.phase == GamePhase.playing) {
       final leave = await showDialog<bool>(
         context: context,
@@ -132,6 +133,9 @@ class _GamePageState extends State<GamePage> {
                 if (provider.phase == GamePhase.bidding &&
                     provider.engine.currentPlayer == 0)
                   BidOverlay(provider: provider, onLeave: _leave),
+                if (provider.phase == GamePhase.doubling &&
+                    provider.engine.currentPlayer == 0)
+                  DoubleOverlay(provider: provider, onLeave: _leave),
                 if (provider.phase == GamePhase.finished)
                   ResultOverlay(
                     provider: provider,

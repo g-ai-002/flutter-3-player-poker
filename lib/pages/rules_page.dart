@@ -70,7 +70,8 @@ class RulesPage extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             '一副 54 张牌，三人各摸 17 张，留 3 张底牌。'
-            '叫到地主的一方拿走底牌，独自对抗两名农民。'
+            '轮流叫 1 / 2 / 3 分，叫分最高者成为地主并拿走底牌，'
+            '独自对抗两名农民，叫分即本局底分。'
             '地主先出完牌即获胜；任意一名农民先出完牌，农民方获胜。',
             style: TextStyle(
               fontSize: 13,
@@ -78,8 +79,55 @@ class RulesPage extends StatelessWidget {
               color: scheme.onSurface.withValues(alpha: 0.78),
             ),
           ),
+          const SizedBox(height: 10),
+          _flowNote(scheme),
         ],
       ),
+    );
+  }
+
+  Widget _flowNote(ColorScheme scheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _flowRow(scheme, '叫分', '叫分必须高于当前最高分，叫 3 分立即成为地主；都不叫则重新发牌。'),
+        const SizedBox(height: 6),
+        _flowRow(scheme, '加倍', '地主先选择是否加倍，两名农民随后各自选择，每次加倍倍数 ×2。'),
+      ],
+    );
+  }
+
+  Widget _flowRow(ColorScheme scheme, String label, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: kGold.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: kGold,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.5,
+              color: scheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -98,8 +146,8 @@ class RulesPage extends StatelessWidget {
           Text('计分', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 6),
           Text(
-            '初始倍数 ×1。每出现一次炸弹或王炸翻倍；地主春天（农民一张未出）'
-            '或农民反春天（地主只出过一手）再翻倍。'
+            '底分为地主叫的分数，初始倍数等于底分。每次加倍、每出现一次炸弹或王炸翻倍；'
+            '地主春天（农民一张未出）或农民反春天（地主只出过一手）再翻倍。'
             '地主获胜得 2×倍数，每名农民扣 1×倍数；农民获胜则相反。',
             style: TextStyle(
               fontSize: 12,

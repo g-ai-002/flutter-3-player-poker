@@ -4,7 +4,7 @@ import '../models/playing_card.dart';
 import 'combo.dart';
 import 'combo_detector.dart';
 
-enum GamePhase { idle, bidding, playing, finished, redeal }
+enum GamePhase { idle, bidding, doubling, playing, finished, redeal }
 
 /// 出牌校验结果。
 enum PlayError {
@@ -96,16 +96,31 @@ class DdzEngine {
   int lastPlayer = -1;
   int passCount = 0;
   int multiplier = 1;
+  int baseScore = 1;
+  int highestBid = 0;
+  int? highestBidder;
   int turnSerial = 0;
   int trickSerial = 0;
   String? lastActionText;
   GameResult? result;
 
-  final Set<int> _bidders = {};
+  /// 每个玩家本局的叫分（0 表示不叫）。
+  final Map<int, int> bids = {};
 
-  bool get isHumanTurn => phase == GamePhase.playing && currentPlayer == 0;
+  /// 加倍顺序：地主先选，随后两名农民。
+  final List<int> doublingQueue = [];
+  int doublingIndex = 0;
+
+  /// 本局所有已经打出的牌，供 AI 记牌使用。
+  final List<PlayingCard> playedCards = [];
 
   PlayerState get current => players[currentPlayer];
+
+  bool get allBidsIn => bids.length >= players.length;
+
+  bool get allDoublingDone => doublingIndex >= doublingQueue.length;
+
+  bool get isHumanTurn => phase == GamePhase.playing && currentPlayer == 0;
 
   int nextPlayer(int from) => (from + 1) % players.length;
 
@@ -113,9 +128,15 @@ class DdzEngine {
     for (final player in players) {
       player.reset();
     }
-    _bidders.clear();
+    bids.clear();
+    doublingQueue.clear();
+    doublingIndex = 0;
+    playedCards.clear();
     bottomCards = const [];
     landlord = null;
+    highestBid = 0;
+    highestBidder = null;
+    baseScore = 1;
     lastCombo = null;
     lastPlayer = -1;
     passCount = 0;
@@ -137,34 +158,35 @@ class DdzEngine {
     turnSerial++;
   }
 
-  /// 叫地主：true 叫地主，false 不叫。返回是否被接受。
-  bool bid(int playerId, bool call) {
+  /// 叫分：0 不叫，1-3 分必须高于当前最高分。返回是否被接受。
+  bool bid(int playerId, int score) {
     if (phase != GamePhase.bidding || currentPlayer != playerId) return false;
-    if (_bidders.contains(playerId)) return false;
-    _bidders.add(playerId);
+    if (score < 0 || score > 3) return false;
+    if (bids.containsKey(playerId)) return false;
+    if (score > 0 && score <= highestBid) return false;
 
-    if (call) {
-      landlord = playerId;
-      final player = players[playerId];
-      player.isLandlord = true;
-      player.hand.addAll(bottomCards);
-      player.sortHand();
-      phase = GamePhase.playing;
-      currentPlayer = playerId;
-      lastCombo = null;
-      lastPlayer = -1;
-      passCount = 0;
-      lastActionText = '${player.name} 叫地主，拿走 3 张底牌';
+    bids[playerId] = score;
+    final name = players[playerId].name;
+    if (score > 0) {
+      highestBid = score;
+      highestBidder = playerId;
+      lastActionText = '$name 叫 $score 分';
+    } else {
+      lastActionText = '$name 不叫';
+    }
+
+    if (score == 3 || allBidsIn) {
+      final winner = highestBidder;
+      if (winner == null) {
+        phase = GamePhase.redeal;
+        lastActionText = '三家都不叫，重新发牌';
+      } else {
+        _startLandlord(winner);
+      }
       turnSerial++;
       return true;
     }
 
-    lastActionText = '${players[playerId].name} 不叫';
-    if (_bidders.length >= players.length) {
-      phase = GamePhase.redeal;
-      turnSerial++;
-      return true;
-    }
     currentPlayer = _nextBidder(playerId);
     turnSerial++;
     return true;
@@ -172,10 +194,57 @@ class DdzEngine {
 
   int _nextBidder(int from) {
     var next = nextPlayer(from);
-    while (_bidders.contains(next)) {
+    while (bids.containsKey(next)) {
       next = nextPlayer(next);
     }
     return next;
+  }
+
+  void _startLandlord(int playerId) {
+    landlord = playerId;
+    baseScore = highestBid;
+    multiplier = baseScore;
+    final player = players[playerId];
+    player.isLandlord = true;
+    player.hand.addAll(bottomCards);
+    player.sortHand();
+    lastActionText = '${player.name} 以 $baseScore 分成为地主';
+    phase = GamePhase.doubling;
+    doublingQueue
+      ..clear()
+      ..add(playerId)
+      ..add(nextPlayer(playerId))
+      ..add(nextPlayer(nextPlayer(playerId)));
+    doublingIndex = 0;
+    currentPlayer = playerId;
+  }
+
+  /// 加倍：true 使本局倍数再 ×2。返回是否被接受。
+  bool doubleUp(int playerId, bool doubled) {
+    if (phase != GamePhase.doubling || currentPlayer != playerId) return false;
+    if (allDoublingDone) return false;
+
+    final name = players[playerId].name;
+    if (doubled) {
+      multiplier *= 2;
+      lastActionText = '$name 加倍，倍数 ×$multiplier';
+    } else {
+      lastActionText = '$name 不加倍';
+    }
+
+    doublingIndex++;
+    if (allDoublingDone) {
+      phase = GamePhase.playing;
+      currentPlayer = landlord ?? playerId;
+      lastCombo = null;
+      lastPlayer = -1;
+      passCount = 0;
+      lastActionText = '加倍结束，${players[currentPlayer].name} 先出牌';
+    } else {
+      currentPlayer = doublingQueue[doublingIndex];
+    }
+    turnSerial++;
+    return true;
   }
 
   PlayOutcome play(int playerId, List<PlayingCard> cards) {
@@ -203,6 +272,7 @@ class DdzEngine {
     player.playCount++;
     player.lastPlay = combo.cards;
     player.lastCombo = combo;
+    playedCards.addAll(combo.cards);
     for (final other in players) {
       other.lastPassed = false;
     }
