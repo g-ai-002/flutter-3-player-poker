@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../game/card_counter.dart';
 import '../../providers/game_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/card_counter_panel.dart';
 import '../rules_page.dart';
 
 /// 牌桌顶栏：返回、地主信息、当前倍数与更多菜单。
@@ -17,6 +19,41 @@ class GameTopBar extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onRestart;
   final bool compact;
+
+  /// 记牌器：底部面板随对局实时刷新，不占用牌桌布局。
+  Future<void> _showCounter(BuildContext context, GameProvider provider) {
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: const Color(0xFF12301F),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '记牌器 · 两家剩余',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ListenableBuilder(
+                listenable: provider,
+                builder: (context, _) => CardCounterPanel(
+                  counts: CardCounter.remaining(provider.engine),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +100,16 @@ class GameTopBar extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          IconButton(
+            tooltip: '记牌器',
+            onPressed: () => _showCounter(context, provider),
+            icon: const Icon(Icons.visibility_outlined, size: 18),
+            color: Colors.white.withValues(alpha: 0.7),
+            constraints: compact
+                ? const BoxConstraints.tightFor(width: 34, height: 40)
+                : null,
+            padding: compact ? EdgeInsets.zero : null,
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

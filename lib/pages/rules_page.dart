@@ -95,6 +95,8 @@ class RulesPage extends StatelessWidget {
         _flowRow(scheme, '加倍', '地主先选择是否加倍，两名农民随后各自选择，每次加倍倍数 ×2。'),
         const SizedBox(height: 6),
         _flowRow(scheme, '明牌', '地主可在自己的加倍回合亮出手牌，本局倍数再 ×2，对手能看到其剩余手牌。'),
+        const SizedBox(height: 6),
+        _flowRow(scheme, '记牌', '顶栏的眼睛按钮打开记牌器，实时查看两家剩余的牌；地主明牌后其手牌不再计入剩余。'),
       ],
     );
   }
