@@ -26,7 +26,12 @@ class AiPlayer {
   List<PlayingCard>? choose(DdzEngine engine) {
     final player = engine.current;
     final target = engine.lastCombo;
-    if (target == null) return _chooseLead(player.hand);
+    if (target == null) {
+      return _chooseLead(
+        player.hand,
+        avoidSingles: _opponentAboutToWin(engine, player),
+      );
+    }
 
     final options = analyzer.beatingCandidates(player.hand, target);
     if (options.isEmpty) return null;
@@ -44,12 +49,17 @@ class AiPlayer {
 
     final normal = options.where((combo) => !combo.isBomb).toList()
       ..sort(_compareBeat);
-    if (normal.isNotEmpty) return normal.first.cards;
+    if (normal.isNotEmpty) {
+      // 不为压一张小牌拆掉炸弹或王炸；残局必须拦牌时才破例。
+      final safe = normal
+          .where((combo) => !_breaksBomb(player.hand, combo))
+          .toList();
+      if (safe.isNotEmpty) return safe.first.cards;
+      if (!_mustBlock(engine, player)) return null;
+      return normal.first.cards;
+    }
 
-    final urgent =
-        engine.lastPlayer >= 0 &&
-        (engine.players[engine.lastPlayer].hand.length <= 2 ||
-            player.hand.length <= 4);
+    final urgent = _mustBlock(engine, player);
     if (!urgent) return null;
     options.sort(_compareBeat);
     return options.first.cards;
@@ -67,7 +77,11 @@ class AiPlayer {
     return (normal.isNotEmpty ? normal.first : options.first).cards;
   }
 
-  List<PlayingCard>? _chooseLead(List<PlayingCard> hand) {
+  /// 领出：小牌优先；不拆炸弹与王炸；对手只剩一张时避免送单张。
+  List<PlayingCard>? _chooseLead(
+    List<PlayingCard> hand, {
+    bool avoidSingles = false,
+  }) {
     final options = analyzer.leadCandidates(hand);
     if (options.isEmpty) return null;
 
@@ -77,9 +91,55 @@ class AiPlayer {
     if (finisher.isNotEmpty) return finisher.first.cards;
 
     final normal = options.where((combo) => !combo.isBomb).toList();
-    final pool = normal.isNotEmpty ? normal : options;
+    final base = normal.isNotEmpty ? normal : options;
+    final safe = base.where((combo) => !_breaksBomb(hand, combo)).toList();
+    var pool = safe.isNotEmpty ? safe : base;
+    if (avoidSingles) {
+      final multi = pool.where((combo) => combo.cards.length > 1).toList();
+      if (multi.isNotEmpty) pool = multi;
+    }
     pool.sort((a, b) => _leadScore(a).compareTo(_leadScore(b)));
     return pool.first.cards;
+  }
+
+  /// 出牌会拆散手牌中的炸弹或王炸。
+  bool _breaksBomb(List<PlayingCard> hand, Combo combo) {
+    if (combo.isBomb) return false;
+    final counts = <int, int>{};
+    for (final card in hand) {
+      counts[card.rank] = (counts[card.rank] ?? 0) + 1;
+    }
+    const rocketLow = 16;
+    const rocketHigh = 17;
+    if (counts[rocketLow] == 1 &&
+        counts[rocketHigh] == 1 &&
+        combo.cards.any((card) => card.isJoker)) {
+      return true;
+    }
+    for (final entry in counts.entries) {
+      if (entry.value != 4) continue;
+      if (combo.cards.any((card) => card.rank == entry.key)) return true;
+    }
+    return false;
+  }
+
+  /// 对手（不同阵营）只剩一张牌，必须主动压制。
+  bool _opponentAboutToWin(DdzEngine engine, PlayerState player) {
+    return engine.players.any(
+      (other) =>
+          other.id != player.id &&
+          other.isLandlord != player.isLandlord &&
+          other.hand.length == 1,
+    );
+  }
+
+  bool _mustBlock(DdzEngine engine, PlayerState player) {
+    final lastPlayer = engine.lastPlayer;
+    final opponentNearWin =
+        lastPlayer >= 0 &&
+        engine.players[lastPlayer].isLandlord != player.isLandlord &&
+        engine.players[lastPlayer].hand.length <= 2;
+    return opponentNearWin || player.hand.length <= 4;
   }
 
   int _compareBeat(Combo a, Combo b) {
