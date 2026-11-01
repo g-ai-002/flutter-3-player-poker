@@ -7,8 +7,9 @@ import 'table_events.dart';
 
 /// 动作广播：把引擎产生的动作统一转成牌桌事件、日志与牌谱。
 ///
-/// 文案直接取引擎的 [DdzEngine.lastActionText]，界面、日志与动画因此共享
-/// 同一份描述，不会出现两处写法不一致的情况。
+/// 日志与牌谱取 [DdzEngine.lastMoveText]（玩家实际动作）；牌桌提示仍取
+/// [DdzEngine.lastActionText]，因此“加倍结束”“两家不出”等阶段文案不会
+/// 覆盖牌谱里的“不加倍”“不出”。
 class ActionAnnouncer {
   ActionAnnouncer({required this.engine, required this.events, this.recorder});
 
@@ -52,7 +53,7 @@ class ActionAnnouncer {
     }
     final actionText =
         text ??
-        engine.lastActionText ??
+        engine.lastMoveText ??
         '${engine.players[playerId].name} 打出${combo.description}';
     recorder?.record(
       playerId,
@@ -68,7 +69,7 @@ class ActionAnnouncer {
   }
 
   void _emitWithText(TableEventType type, int playerId, HandActionType action) {
-    final text = engine.lastActionText;
+    final text = engine.lastMoveText;
     events.emit(TableEvent(type: type, player: playerId, text: text));
     if (text != null && text.isNotEmpty) {
       LogService.info(text);

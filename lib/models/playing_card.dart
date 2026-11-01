@@ -47,6 +47,40 @@ class PlayingCard {
     _ => '$suitSymbol$rankLabel',
   };
 
+  Map<String, Object> toJson() => {'id': id, 'rank': rank, 'suit': suit.index};
+
+  /// 从牌谱 JSON 还原一张牌；字段缺失或越界时返回 null。
+  static PlayingCard? tryFromJson(Object? value) {
+    if (value is! Map) return null;
+    final id = value['id'];
+    final rank = value['rank'];
+    final suit = value['suit'];
+    if (id is! num || rank is! num || suit is! num) return null;
+    final rankValue = rank.toInt();
+    final suitIndex = suit.toInt();
+    if (rankValue < 3 || rankValue > 17) return null;
+    if (suitIndex < 0 || suitIndex >= CardSuit.values.length) return null;
+    return PlayingCard(
+      id: id.toInt(),
+      rank: rankValue,
+      suit: CardSuit.values[suitIndex],
+    );
+  }
+
+  static List<PlayingCard> listFromJson(Object? value) {
+    if (value is! List) return const [];
+    final cards = <PlayingCard>[];
+    for (final item in value) {
+      final card = tryFromJson(item);
+      if (card != null) cards.add(card);
+    }
+    return cards;
+  }
+
+  static List<Map<String, Object>> listToJson(Iterable<PlayingCard> cards) => [
+    for (final card in cards) card.toJson(),
+  ];
+
   /// 生成一副 54 张牌，id 固定，便于测试复现。
   static List<PlayingCard> createDeck() {
     final deck = <PlayingCard>[];

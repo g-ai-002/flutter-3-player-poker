@@ -44,33 +44,15 @@ class HandAction {
     'player': player,
     'type': type.name,
     'text': text,
-    'cards': [
-      for (final card in cards)
-        {'id': card.id, 'rank': card.rank, 'suit': card.suit.index},
-    ],
+    'cards': PlayingCard.listToJson(cards),
   };
 
-  factory HandAction.fromJson(Map<String, dynamic> json) {
-    final rawCards = json['cards'];
-    return HandAction(
-      player: json['player'] is num ? (json['player'] as num).toInt() : 0,
-      type: HandActionType.fromName(json['type'] as String?),
-      text: json['text'] is String ? json['text'] as String : '',
-      cards: rawCards is List
-          ? [
-              for (final item in rawCards)
-                if (item is Map)
-                  PlayingCard(
-                    id: _readInt(item['id']),
-                    rank: _readInt(item['rank']),
-                    suit:
-                        CardSuit.values[_readInt(item['suit'])
-                            .clamp(0, CardSuit.values.length - 1)],
-                  ),
-            ]
-          : const [],
-    );
-  }
+  factory HandAction.fromJson(Map<String, dynamic> json) => HandAction(
+    player: json['player'] is num ? (json['player'] as num).toInt() : 0,
+    type: HandActionType.fromName(json['type'] as String?),
+    text: json['text'] is String ? json['text'] as String : '',
+    cards: PlayingCard.listFromJson(json['cards']),
+  );
 }
 
 /// 一局完整牌谱：结算数据 + 逐步动作，可持久化与导出。
@@ -139,10 +121,7 @@ class HandRecord {
     'revealed': revealed,
     'scores': scores,
     'playerNames': playerNames,
-    'bottomCards': [
-      for (final card in bottomCards)
-        {'id': card.id, 'rank': card.rank, 'suit': card.suit.index},
-    ],
+    'bottomCards': PlayingCard.listToJson(bottomCards),
     'actions': [for (final action in actions) action.toJson()],
   };
 
@@ -168,7 +147,7 @@ class HandRecord {
       playerNames: json['playerNames'] is List
           ? [for (final name in json['playerNames'] as List) '$name']
           : const [],
-      bottomCards: _readCards(json['bottomCards']),
+      bottomCards: PlayingCard.listFromJson(json['bottomCards']),
       actions: json['actions'] is List
           ? [
               for (final item in json['actions'] as List)
@@ -220,18 +199,3 @@ DateTime? _readDate(Object? value) =>
 
 List<int> _readIntList(Object? value) =>
     value is List ? [for (final item in value) _readInt(item)] : const [];
-
-List<PlayingCard> _readCards(Object? value) {
-  if (value is! List) return const [];
-  return [
-    for (final item in value)
-      if (item is Map)
-        PlayingCard(
-          id: _readInt(item['id']),
-          rank: _readInt(item['rank']),
-          suit:
-              CardSuit.values[_readInt(item['suit'])
-                  .clamp(0, CardSuit.values.length - 1)],
-        ),
-  ];
-}

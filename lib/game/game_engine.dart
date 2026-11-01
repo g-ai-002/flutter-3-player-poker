@@ -105,7 +105,15 @@ class DdzEngine {
   int? highestBidder;
   int turnSerial = 0;
   int trickSerial = 0;
+
+  /// 牌桌当前展示的提示文案，可能被阶段转换覆盖（如“加倍结束”“两家不出”）。
   String? lastActionText;
+
+  /// 最近一次玩家动作本身的文案，用于日志与牌谱。
+  ///
+  /// 与 [lastActionText] 分开保存：叫分结束、最后一次加倍、两家不出时，
+  /// 阶段提示会覆盖 [lastActionText]，但日志仍应记录玩家实际做了什么。
+  String? lastMoveText;
   GameResult? result;
 
   /// 地主已明牌：手牌亮给两名农民，本局倍数 ×2。
@@ -150,6 +158,7 @@ class DdzEngine {
     multiplier = 1;
     result = null;
     lastActionText = null;
+    lastMoveText = null;
     revealed = false;
     phase = GamePhase.bidding;
     trickSerial++;
@@ -178,10 +187,11 @@ class DdzEngine {
     if (score > 0) {
       highestBid = score;
       highestBidder = playerId;
-      lastActionText = '$name 叫 $score 分';
+      lastMoveText = '$name 叫 $score 分';
     } else {
-      lastActionText = '$name 不叫';
+      lastMoveText = '$name 不叫';
     }
+    lastActionText = lastMoveText;
 
     if (score == 3 || allBidsIn) {
       final winner = highestBidder;
@@ -236,7 +246,8 @@ class DdzEngine {
     if (landlord != playerId || revealed) return false;
     revealed = true;
     multiplier *= 2;
-    lastActionText = '${players[playerId].name} 明牌，倍数 ×$multiplier';
+    lastMoveText = '${players[playerId].name} 明牌，倍数 ×$multiplier';
+    lastActionText = lastMoveText;
     turnSerial++;
     return true;
   }
@@ -249,10 +260,11 @@ class DdzEngine {
     final name = players[playerId].name;
     if (doubled) {
       multiplier *= 2;
-      lastActionText = '$name 加倍，倍数 ×$multiplier';
+      lastMoveText = '$name 加倍，倍数 ×$multiplier';
     } else {
-      lastActionText = '$name 不加倍';
+      lastMoveText = '$name 不加倍';
     }
+    lastActionText = lastMoveText;
 
     doublingIndex++;
     if (allDoublingDone) {
@@ -309,6 +321,7 @@ class DdzEngine {
     } else {
       actionText = '${player.name} 打出${combo.description}';
     }
+    lastMoveText = actionText;
     lastActionText = actionText;
 
     if (player.hand.isEmpty) {
@@ -332,7 +345,8 @@ class DdzEngine {
     player.lastPlay = const [];
     player.lastCombo = null;
     passCount++;
-    lastActionText = '${player.name} 不出';
+    lastMoveText = '${player.name} 不出';
+    lastActionText = lastMoveText;
 
     if (passCount >= 2) {
       currentPlayer = lastPlayer;

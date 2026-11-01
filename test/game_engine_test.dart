@@ -72,6 +72,8 @@ void main() {
       expect(engine.baseScore, 3);
       expect(engine.multiplier, 3);
       expect(engine.phase, GamePhase.doubling);
+      expect(engine.lastMoveText, contains('叫 3 分'));
+      expect(engine.lastActionText, contains('成为地主'));
     });
 
     test('叫分必须高于当前最高分', () {
@@ -142,6 +144,22 @@ void main() {
       expect(engine.multiplier, 8);
       expect(engine.phase, GamePhase.playing);
       expect(engine.currentPlayer, landlord);
+    });
+
+    test('最后一次加倍后仍保留玩家动作文案', () {
+      final engine = DdzEngine(random: Random(14));
+      engine.start();
+      final landlord = engine.currentPlayer;
+      engine.bid(landlord, 1);
+      while (engine.phase == GamePhase.bidding) {
+        engine.bid(engine.currentPlayer, 0);
+      }
+      while (engine.phase == GamePhase.doubling) {
+        engine.doubleUp(engine.currentPlayer, false);
+      }
+
+      expect(engine.lastMoveText, endsWith('不加倍'));
+      expect(engine.lastActionText, contains('加倍结束'));
     });
 
     test('未轮到或阶段不符时加倍被拒绝', () {
@@ -262,6 +280,8 @@ void main() {
       expect(engine.lastCombo, isNull);
       expect(engine.lastPlayer, -1);
       expect(engine.players[0].lastPlay, isEmpty);
+      expect(engine.lastMoveText, '阿福 不出');
+      expect(engine.lastActionText, contains('重新领出'));
     });
 
     test('炸弹翻倍', () {

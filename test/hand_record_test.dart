@@ -72,11 +72,13 @@ void main() {
     expect(record.humanScore, 24);
     expect(record.humanWon, isTrue);
     expect(record.actions.first.type, HandActionType.bid);
+    expect(record.actions.first.text, '你 叫 3 分');
     expect(record.actions[1].type, HandActionType.reveal);
-    expect(
-      record.actions.where((action) => action.type == HandActionType.double),
-      hasLength(3),
-    );
+    final doubles = record.actions
+        .where((action) => action.type == HandActionType.double)
+        .toList();
+    expect(doubles, hasLength(3));
+    expect(doubles.map((action) => action.text), everyElement(contains('不加倍')));
     final play = record.actions.last;
     expect(play.type, HandActionType.play);
     expect(play.cards.single.rank, 3);
@@ -109,22 +111,81 @@ void main() {
     expect(text, contains('身份: 地主'));
     expect(text, contains('地主获胜 · 春天 · 倍数 ×12'));
     expect(text, contains('明牌: 地主已亮牌'));
-    expect(text, contains('1. 你 以 3 分成为地主'));
+    expect(text, contains('1. 你 叫 3 分'));
     expect(text, contains('出牌记录'));
+  });
+
+  test('两家不出时仍逐条记录各自的“不出”动作', () {
+    final engine = DdzEngine(random: Random(51));
+    engine.start();
+    engine.currentPlayer = 0;
+    expect(engine.bid(0, 1), isTrue);
+    while (engine.phase == GamePhase.bidding) {
+      engine.bid(engine.currentPlayer, 0);
+    }
+    declineDoubling(engine);
+    engine.players[0].hand
+      ..clear()
+      ..addAll(handOf('3 4 5'));
+    engine.players[1].hand
+      ..clear()
+      ..addAll(handOf('6 7 8'));
+    engine.players[2].hand
+      ..clear()
+      ..addAll(handOf('9 10 11'));
+    engine.currentPlayer = 0;
+
+    final recorder = HandRecorder(clock: () => DateTime(2026, 11, 2));
+    final announcer = ActionAnnouncer(
+      engine: engine,
+      events: TableEventBus(),
+      recorder: recorder,
+    );
+    recorder.start();
+
+    final play = engine.play(0, [engine.players[0].hand.first]);
+    expect(play.ok, isTrue);
+    announcer.play(0, play.combo, text: play.text);
+    expect(engine.pass(1), PlayError.none);
+    announcer.pass(1);
+    expect(engine.pass(2), PlayError.none);
+    announcer.pass(2);
+
+    expect(engine.lastActionText, contains('重新领出'));
+    expect(
+      recorder.actions
+          .where((action) => action.type == HandActionType.pass)
+          .map((action) => action.text),
+      ['小智 不出', '阿福 不出'],
+    );
   });
 
   test('非法 JSON 字段回落到安全默认值', () {
     final record = HandRecord.fromJson(const {
       'id': 1,
       'scores': ['x', 2],
+      'bottomCards': [
+        {'id': 1, 'rank': 99, 'suit': 0},
+        {'id': 2, 'rank': 3, 'suit': 9},
+        {'id': 3, 'rank': 3, 'suit': 0},
+      ],
       'actions': [
-        {'player': 'a', 'type': 'unknown', 'text': 1},
+        {
+          'player': 'a',
+          'type': 'unknown',
+          'text': 1,
+          'cards': [
+            {'id': 4, 'rank': 3, 'suit': 0},
+          ],
+        },
       ],
     });
 
     expect(record.id, '');
     expect(record.scores, [0, 2]);
+    expect(record.bottomCards.single.id, 3);
     expect(record.actions.single.type, HandActionType.play);
     expect(record.actions.single.text, '');
+    expect(record.actions.single.cards.single.id, 4);
   });
 }
