@@ -14,10 +14,7 @@ class HandAnalyzer {
   /// 仅用于高手 AI 比较候选：按王炸、炸弹、顺子、连对、飞机、三张、对子、
   /// 单张的顺序尽量合并，不追求最优解，但足够区分「拆牌」与「留牌」。
   int estimatePlays(List<PlayingCard> hand) {
-    final counts = <int, int>{};
-    for (final card in hand) {
-      counts[card.rank] = (counts[card.rank] ?? 0) + 1;
-    }
+    final counts = PlayingCard.rankCounts(hand);
     var plays = 0;
     if ((counts[16] ?? 0) > 0 && (counts[17] ?? 0) > 0) {
       counts[16] = 0;
@@ -196,8 +193,8 @@ class HandAnalyzer {
 
     for (final entry in groups.entries) {
       final rank = entry.key;
-      if (rank <= target.rank) continue;
       final cards = entry.value;
+      if (rank <= target.rank) continue;
       switch (target.type) {
         case ComboType.single:
           add([cards.first]);
@@ -209,36 +206,57 @@ class HandAnalyzer {
           if (cards.length >= 3) add(_withSingles(groups, [rank], 3, 1));
         case ComboType.triplePair:
           if (cards.length >= 3) add(_withPairs(groups, [rank], 3, 1));
-        case ComboType.straight:
-          for (final ranks in _windows(groups, target.length, 1)) {
-            if (ranks.last > target.rank) add(_take(groups, ranks));
-          }
-        case ComboType.straightPair:
-          for (final ranks in _windows(groups, target.length, 2)) {
-            if (ranks.last > target.rank) add(_take(groups, ranks, 2));
-          }
-        case ComboType.plane:
-          for (final ranks in _windows(groups, target.length, 3)) {
-            if (ranks.last > target.rank) add(_take(groups, ranks, 3));
-          }
-        case ComboType.planeSingle:
-          for (final ranks in _windows(groups, target.length, 3)) {
-            if (ranks.last <= target.rank) continue;
-            add(_withSingles(groups, ranks, 3, target.length));
-          }
-        case ComboType.planePair:
-          for (final ranks in _windows(groups, target.length, 3)) {
-            if (ranks.last <= target.rank) continue;
-            add(_withPairs(groups, ranks, 3, target.length));
-          }
         case ComboType.fourTwoSingle:
           if (cards.length >= 4) add(_withSingles(groups, [rank], 4, 2));
         case ComboType.fourTwoPair:
           if (cards.length >= 4) add(_withPairs(groups, [rank], 4, 2));
+        case ComboType.straight:
+        case ComboType.straightPair:
+        case ComboType.plane:
+        case ComboType.planeSingle:
+        case ComboType.planePair:
         case ComboType.bomb:
         case ComboType.rocket:
           break;
       }
+    }
+
+    // 连续牌型与点数无关，窗口只枚举一次，避免按每个点数重复计算。
+    switch (target.type) {
+      case ComboType.straight:
+        for (final ranks in _windows(groups, target.length, 1)) {
+          if (ranks.last > target.rank) add(_take(groups, ranks));
+        }
+      case ComboType.straightPair:
+        for (final ranks in _windows(groups, target.length, 2)) {
+          if (ranks.last > target.rank) add(_take(groups, ranks, 2));
+        }
+      case ComboType.plane:
+        for (final ranks in _windows(groups, target.length, 3)) {
+          if (ranks.last > target.rank) add(_take(groups, ranks, 3));
+        }
+      case ComboType.planeSingle:
+        for (final ranks in _windows(groups, target.length, 3)) {
+          if (ranks.last > target.rank) {
+            add(_withSingles(groups, ranks, 3, target.length));
+          }
+        }
+      case ComboType.planePair:
+        for (final ranks in _windows(groups, target.length, 3)) {
+          if (ranks.last > target.rank) {
+            add(_withPairs(groups, ranks, 3, target.length));
+          }
+        }
+      case ComboType.single:
+      case ComboType.pair:
+      case ComboType.triple:
+      case ComboType.tripleSingle:
+      case ComboType.triplePair:
+      case ComboType.fourTwoSingle:
+      case ComboType.fourTwoPair:
+      case ComboType.bomb:
+      case ComboType.rocket:
+        break;
     }
 
     for (final entry in groups.entries) {

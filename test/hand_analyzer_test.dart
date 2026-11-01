@@ -60,6 +60,30 @@ void main() {
       final target = detectCombo(handOf('2 2'))!;
       expect(analyzer.beatingCandidates(hand, target), isEmpty);
     });
+
+    test('顺子跟牌只给出真正更大的窗口', () {
+      final hand = handOf('4 5 6 7 8 9 9 9');
+      final target = detectCombo(handOf('3 4 5 6 7'))!;
+      final options = analyzer.beatingCandidates(hand, target);
+
+      final straights = options.where((combo) => combo.type.name == 'straight');
+      expect(straights.map((combo) => combo.rank), containsAll([8, 9]));
+      for (final combo in straights) {
+        expect(combo.length, 5);
+        expect(beatsCombo(combo, target), isTrue);
+      }
+    });
+
+    test('飞机带对跟牌可选出更大的飞机', () {
+      final hand = handOf('4 4 4 5 5 5 7 7 8 8');
+      final target = detectCombo(handOf('3 3 3 4 4 4 5 5 6 6'))!;
+      final options = analyzer.beatingCandidates(hand, target);
+
+      final planes = options.where((combo) => combo.type.name == 'planePair');
+      expect(planes, isNotEmpty);
+      expect(planes.first.rank, 5);
+      expect(planes.first.length, 2);
+    });
   });
 
   group('AI 决策', () {

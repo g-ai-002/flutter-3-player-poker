@@ -53,6 +53,25 @@ void main() {
       expect(ids.length, 54);
     });
 
+    test('手牌按点数降序、同点数按 id 稳定排序', () {
+      final player = PlayerState(id: 0, name: '你');
+      player.hand.addAll([
+        const PlayingCard(id: 9, rank: 5, suit: CardSuit.spade),
+        const PlayingCard(id: 2, rank: 5, suit: CardSuit.heart),
+        const PlayingCard(id: 5, rank: 7, suit: CardSuit.club),
+      ]);
+
+      player.sortHand();
+      expect(player.hand.map((card) => card.id), [5, 2, 9]);
+
+      final reversed = [...player.hand.reversed];
+      player.hand
+        ..clear()
+        ..addAll(reversed);
+      player.sortHand();
+      expect(player.hand.map((card) => card.id), [5, 2, 9]);
+    });
+
     test('叫分后收底牌并先出', () {
       final engine = startedEngine(landlord: 2);
       expect(engine.landlord, 2);

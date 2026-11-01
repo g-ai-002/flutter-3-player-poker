@@ -21,7 +21,36 @@ class PlayingCard {
   bool get isRed =>
       suit == CardSuit.heart || suit == CardSuit.diamond || rank == 17;
 
-  String get rankLabel => switch (rank) {
+  /// 整副牌各点数的张数：3-15 各 4 张，大小王各 1 张。
+  static const Map<int, int> rankTotals = {
+    3: 4,
+    4: 4,
+    5: 4,
+    6: 4,
+    7: 4,
+    8: 4,
+    9: 4,
+    10: 4,
+    11: 4,
+    12: 4,
+    13: 4,
+    14: 4,
+    15: 4,
+    16: 1,
+    17: 1,
+  };
+
+  /// 点数 -> 张数；记牌器、AI 记牌与牌型识别共用。
+  static Map<int, int> rankCounts(Iterable<PlayingCard> cards) {
+    final counts = <int, int>{};
+    for (final card in cards) {
+      counts[card.rank] = (counts[card.rank] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  /// 牌面角标：J/Q/K/A/2，大小王用「小 / 大」。
+  static String rankLabelOf(int rank) => switch (rank) {
     11 => 'J',
     12 => 'Q',
     13 => 'K',
@@ -31,6 +60,15 @@ class PlayingCard {
     17 => '大',
     _ => '$rank',
   };
+
+  /// 口播与统计用的点数名称：小王 / 大王。
+  static String rankName(int rank) => switch (rank) {
+    16 => '小王',
+    17 => '大王',
+    _ => rankLabelOf(rank),
+  };
+
+  String get rankLabel => rankLabelOf(rank);
 
   String get suitSymbol => switch (suit) {
     CardSuit.spade => '♠',

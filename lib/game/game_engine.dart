@@ -46,7 +46,11 @@ class PlayerState {
   List<PlayingCard> lastPlay = const [];
   Combo? lastCombo;
 
-  void sortHand() => hand.sort((a, b) => b.rank.compareTo(a.rank));
+  /// 按点数从大到小排列；同点数按 id 固定顺序，避免重复排序时牌面跳动。
+  void sortHand() => hand.sort((a, b) {
+    final byRank = b.rank.compareTo(a.rank);
+    return byRank != 0 ? byRank : a.id.compareTo(b.id);
+  });
 
   void reset() {
     hand.clear();

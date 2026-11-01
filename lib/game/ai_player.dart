@@ -2,6 +2,7 @@ import 'dart:math';
 
 import '../models/app_settings.dart';
 import '../models/playing_card.dart';
+import 'card_counter.dart';
 import 'combo.dart';
 import 'game_engine.dart';
 import 'hand_analyzer.dart';
@@ -217,25 +218,9 @@ class AiPlayer {
     return analyzer.estimatePlays(rest);
   }
 
-  /// 高手记牌：从整副牌中扣掉自己手牌与所有已出牌。
-  Map<int, int> _unseenCards(DdzEngine engine) {
-    final counts = <int, int>{
-      for (var rank = 3; rank <= 15; rank++) rank: 4,
-      16: 1,
-      17: 1,
-    };
-    void remove(PlayingCard card) {
-      counts[card.rank] = (counts[card.rank] ?? 0) - 1;
-    }
-
-    for (final card in engine.playedCards) {
-      remove(card);
-    }
-    for (final card in engine.current.hand) {
-      remove(card);
-    }
-    return counts;
-  }
+  /// 高手记牌：与记牌器同一口径，并额外扣除地主明牌公开的手牌。
+  Map<int, int> _unseenCards(DdzEngine engine) =>
+      CardCounter.remaining(engine, player: engine.currentPlayer);
 
   /// 出掉一张对手无法压制的牌会失去控制力，稍微降低优先级。
   int _controlPenalty(Combo combo, Map<int, int> unseen) {
@@ -254,10 +239,7 @@ class AiPlayer {
   /// 出牌会拆散手牌中的炸弹或王炸。
   bool _breaksBomb(List<PlayingCard> hand, Combo combo) {
     if (combo.isBomb) return false;
-    final counts = <int, int>{};
-    for (final card in hand) {
-      counts[card.rank] = (counts[card.rank] ?? 0) + 1;
-    }
+    final counts = PlayingCard.rankCounts(hand);
     const rocketLow = 16;
     const rocketHigh = 17;
     if (counts[rocketLow] == 1 &&
@@ -318,14 +300,13 @@ class AiPlayer {
 
   double _strength(List<PlayingCard> hand) {
     var score = 0.0;
-    final counts = <int, int>{};
     for (final card in hand) {
-      counts[card.rank] = (counts[card.rank] ?? 0) + 1;
       if (card.rank == 17) score += 4;
       if (card.rank == 16) score += 3;
       if (card.rank == 15) score += 1;
       if (card.rank == 14) score += 0.4;
     }
+    final counts = PlayingCard.rankCounts(hand);
     for (final count in counts.values) {
       if (count == 4) score += 4;
     }

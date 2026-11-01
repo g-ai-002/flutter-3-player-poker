@@ -7,10 +7,7 @@ import 'combo.dart';
 /// 带翅膀的牌型要求翅膀点数不与飞机主体重复，避免把四张拆成三带一。
 Combo? detectCombo(List<PlayingCard> cards) {
   if (cards.isEmpty) return null;
-  final counts = <int, int>{};
-  for (final card in cards) {
-    counts[card.rank] = (counts[card.rank] ?? 0) + 1;
-  }
+  final counts = PlayingCard.rankCounts(cards);
   final n = cards.length;
   final ranks = counts.keys.toList()..sort();
   final sortedCards = [...cards]..sort((a, b) => a.rank.compareTo(b.rank));

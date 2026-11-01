@@ -27,25 +27,11 @@ class CardCounter {
     17,
   ];
 
-  static const Map<int, String> _labels = {
-    11: 'J',
-    12: 'Q',
-    13: 'K',
-    14: 'A',
-    15: '2',
-    16: '小王',
-    17: '大王',
-  };
-
-  static String label(int rank) => _labels[rank] ?? '$rank';
+  static String label(int rank) => PlayingCard.rankName(rank);
 
   /// 点数 -> 两家对手剩余张数。
   static Map<int, int> remaining(DdzEngine engine, {int player = 0}) {
-    final counts = <int, int>{
-      for (var rank = 3; rank <= 15; rank++) rank: 4,
-      16: 1,
-      17: 1,
-    };
+    final counts = Map<int, int>.of(PlayingCard.rankTotals);
     void take(PlayingCard card) {
       final left = (counts[card.rank] ?? 0) - 1;
       counts[card.rank] = left < 0 ? 0 : left;
