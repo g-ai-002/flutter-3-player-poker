@@ -85,24 +85,18 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const shape = StadiumBorder();
     if (outlined) {
       return SizedBox(
         height: 38,
         child: OutlinedButton(
           onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            disabledForegroundColor: Colors.white.withValues(alpha: 0.25),
-            side: BorderSide(
-              color: onPressed == null
-                  ? Colors.white.withValues(alpha: 0.12)
-                  : Colors.white.withValues(alpha: 0.35),
-            ),
+          style: tableGhostButtonStyle(
+            enabled: onPressed != null,
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            shape: shape,
+            fontSize: 12,
+            foreground: Colors.white,
           ),
-          child: Text(label, style: const TextStyle(fontSize: 12)),
+          child: Text(label),
         ),
       );
     }
@@ -110,19 +104,8 @@ class _ActionButton extends StatelessWidget {
       height: 38,
       child: FilledButton(
         onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: kGold,
-          foregroundColor: const Color(0xFF2C1D04),
-          disabledBackgroundColor: kGold.withValues(alpha: 0.22),
-          disabledForegroundColor: const Color(0xFF2C1D04)
-              .withValues(alpha: 0.5),
-          padding: const EdgeInsets.symmetric(horizontal: 15),
-          shape: shape,
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-        ),
+        style: goldButtonStyle(shape: const StadiumBorder()),
+        child: Text(label),
       ),
     );
   }

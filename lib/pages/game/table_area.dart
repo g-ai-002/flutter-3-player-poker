@@ -71,6 +71,7 @@ class GameTableArea extends StatelessWidget {
                   player: left,
                   isCurrent: engine.currentPlayer == 2,
                   thinking: provider.thinkingPlayer == 2,
+                  phase: engine.phase,
                 ),
               ),
               Expanded(child: BottomCards(engine: engine)),
@@ -80,6 +81,7 @@ class GameTableArea extends StatelessWidget {
                   player: right,
                   isCurrent: engine.currentPlayer == 1,
                   thinking: provider.thinkingPlayer == 1,
+                  phase: engine.phase,
                 ),
               ),
             ],
@@ -104,7 +106,7 @@ class GameTableArea extends StatelessWidget {
               ),
               Flexible(
                 flex: 2,
-                child: Center(child: TurnChip(text: provider.turnHint)),
+                child: Center(child: StatusInfo(provider: provider)),
               ),
               Expanded(
                 child: Align(
@@ -150,6 +152,7 @@ class _SideColumn extends StatelessWidget {
             player: player,
             isCurrent: provider.engine.currentPlayer == player.id,
             thinking: provider.thinkingPlayer == player.id,
+            phase: provider.engine.phase,
           ),
           const SizedBox(height: 10),
           PlayedCardsView(

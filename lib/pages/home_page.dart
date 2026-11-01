@@ -335,13 +335,12 @@ class _StartButton extends StatelessWidget {
             letterSpacing: 2,
           ),
         ),
-        style: FilledButton.styleFrom(
-          backgroundColor: kGold,
-          foregroundColor: const Color(0xFF2C1D04),
+        style: goldButtonStyle(
+          padding: EdgeInsets.zero,
+          fontSize: 16,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          elevation: 0,
         ),
       ),
     );

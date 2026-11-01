@@ -10,23 +10,30 @@ class SeatPanel extends StatelessWidget {
     required this.player,
     required this.isCurrent,
     required this.thinking,
+    this.phase = GamePhase.playing,
   });
 
   final PlayerState player;
   final bool isCurrent;
   final bool thinking;
+  final GamePhase phase;
+
+  String get _status {
+    if (thinking) return '思考中…';
+    if (player.lastPassed) return '不出';
+    if (player.hand.isEmpty) return '已出完';
+    if (!isCurrent) return '等待';
+    return switch (phase) {
+      GamePhase.bidding => '叫分中',
+      GamePhase.doubling => '加倍中',
+      GamePhase.playing => '出牌中',
+      _ => '等待',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
-    final status = thinking
-        ? '思考中…'
-        : player.lastPassed
-        ? '不出'
-        : player.hand.isEmpty
-        ? '已出完'
-        : isCurrent
-        ? '出牌中'
-        : '等待';
+    final status = _status;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(

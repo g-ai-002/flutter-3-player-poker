@@ -1,11 +1,45 @@
 import 'package:flutter/material.dart';
 
 const Color kFeltDark = Color(0xFF0A2318);
-const Color kFeltMid = Color(0xFF11452D);
 const Color kGold = Color(0xFFD8B56A);
 const Color kGoldSoft = Color(0xFFEBD6A4);
-const Color kCream = Color(0xFFF6EFDF);
-const Color kInk = Color(0xFF1E2A23);
+const Color kOnGold = Color(0xFF2C1D04);
+
+/// 金色主按钮：主页「开始对局」、牌桌出牌与浮层确认共用同一套配色。
+ButtonStyle goldButtonStyle({
+  EdgeInsetsGeometry padding = const EdgeInsets.symmetric(horizontal: 15),
+  double fontSize = 13,
+  OutlinedBorder? shape,
+}) {
+  return FilledButton.styleFrom(
+    backgroundColor: kGold,
+    foregroundColor: kOnGold,
+    disabledBackgroundColor: kGold.withValues(alpha: 0.22),
+    disabledForegroundColor: kOnGold.withValues(alpha: 0.5),
+    padding: padding,
+    textStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700),
+    shape: shape,
+  );
+}
+
+/// 深色牌桌上的次要按钮：细描边、低饱和文字。
+ButtonStyle tableGhostButtonStyle({
+  bool enabled = true,
+  EdgeInsetsGeometry padding = const EdgeInsets.symmetric(horizontal: 14),
+  double fontSize = 13,
+  Color foreground = const Color(0xB3FFFFFF),
+}) {
+  return OutlinedButton.styleFrom(
+    foregroundColor: foreground,
+    disabledForegroundColor: Colors.white.withValues(alpha: 0.25),
+    side: BorderSide(
+      color: Colors.white.withValues(alpha: enabled ? 0.3 : 0.12),
+    ),
+    padding: padding,
+    textStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w500),
+    shape: const StadiumBorder(),
+  );
+}
 
 ThemeData buildLightTheme({String? fontFamily}) {
   const scheme = ColorScheme.light(
