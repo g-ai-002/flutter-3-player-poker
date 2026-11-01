@@ -110,6 +110,29 @@ void main() {
       final hint = AiPlayer(random: Random(2)).hint(engine)!;
       expect(hint.any((card) => card.isJoker), isFalse);
     });
+
+    test('跟牌提示不拆炸弹，有替代单张时优先替代牌', () {
+      final engine = engineWith(
+        landlord: 0,
+        hands: {0: '3 3 3 3 7 9', 1: '8 8', 2: '5 6 10 10 10'},
+        lastRanks: '6',
+        lastPlayer: 2,
+      );
+      final hint = AiPlayer(random: Random(2)).hint(engine)!;
+      expect(hint.single.rank, 7);
+    });
+
+    test('没有替代牌时提示炸弹', () {
+      final engine = engineWith(
+        landlord: 0,
+        hands: {0: '3 3 3 3', 1: '8 8', 2: '5 6 10 10 10'},
+        lastRanks: '5',
+        lastPlayer: 2,
+      );
+      final hint = AiPlayer(random: Random(2)).hint(engine)!;
+      expect(hint.length, 4);
+      expect(detectCombo(hint)!.type.name, 'bomb');
+    });
   });
 
   group('AI 明牌策略', () {

@@ -126,16 +126,21 @@ class AiPlayer {
     return options.first.cards;
   }
 
-  /// 人类玩家的提示：优先普通牌型，没有时才提示炸弹。
+  /// 人类玩家的提示：优先不拆炸弹/王炸的普通牌型，没有时才提示炸弹。
   List<PlayingCard>? hint(DdzEngine engine) {
     final player = engine.players[0];
     final target = engine.lastCombo;
     if (target == null) return _chooseLead(player.hand);
     final options = analyzer.beatingCandidates(player.hand, target);
     if (options.isEmpty) return null;
-    options.sort(_compareBeat);
-    final normal = options.where((combo) => !combo.isBomb);
-    return (normal.isNotEmpty ? normal.first : options.first).cards;
+
+    final safe = options
+        .where((combo) => !_breaksBomb(player.hand, combo))
+        .toList();
+    final pool = safe.isNotEmpty ? safe : options;
+    pool.sort(_compareBeat);
+    final normal = pool.where((combo) => !combo.isBomb);
+    return (normal.isNotEmpty ? normal.first : pool.first).cards;
   }
 
   /// 领出：小牌优先；不拆炸弹与王炸；对手只剩一张时避免送单张。
