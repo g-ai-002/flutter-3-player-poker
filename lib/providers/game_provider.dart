@@ -170,6 +170,7 @@ class GameProvider extends ChangeNotifier {
     if (!engine.isHumanTurn) return;
     final cards = ai.hint(engine);
     if (cards == null) {
+      _selectedIds.clear();
       _showFeedback('没有能压过上家的牌，建议不出');
       return;
     }
@@ -241,33 +242,63 @@ class GameProvider extends ChangeNotifier {
     final actor = engine.currentPlayer;
     final cards = ai.choose(engine);
     _thinkingPlayer = null;
+    var advanced = false;
     if (cards == null) {
       if (engine.lastCombo == null) {
-        // 兜底：领出时不能不出，出最小的一张保证对局继续。
-        final fallback = [engine.players[actor].hand.last];
-        final outcome = engine.play(actor, fallback);
-        if (outcome.ok) _emitPlay(actor, outcome.combo);
+        advanced = _leadFallback(actor, 'AI 未给出领出牌');
       } else {
-        final error = engine.pass(actor);
-        if (error == PlayError.none) {
-          events.emit(TableEvent(type: TableEventType.pass, player: actor));
-          LogService.info('AI ${engine.players[actor].name} 不出');
-        }
+        advanced = _passMove(actor);
       }
     } else {
       final outcome = engine.play(actor, cards);
       if (outcome.ok) {
         _emitPlay(actor, outcome.combo);
+        advanced = true;
       } else {
-        LogService.error('AI 出牌被拒绝: ${outcome.error.message}');
-        if (engine.lastCombo != null) {
-          engine.pass(actor);
-          events.emit(TableEvent(type: TableEventType.pass, player: actor));
-        }
+        LogService.error(
+          'AI 出牌被拒绝: ${outcome.error.message} '
+          '[${cards.map((card) => card.displayName).join(' ')}]',
+        );
+        advanced = engine.lastCombo != null
+            ? _passMove(actor)
+            : _leadFallback(actor, 'AI 领出被拒绝');
       }
     }
     notifyListeners();
-    _schedule();
+    if (advanced) {
+      _schedule();
+    } else {
+      _showFeedback('AI 出牌异常，请重新开始本局');
+    }
+  }
+
+  bool _passMove(int actor) {
+    final error = engine.pass(actor);
+    if (error != PlayError.none) {
+      LogService.error('AI 不出被拒绝: ${error.message}');
+      return false;
+    }
+    events.emit(TableEvent(type: TableEventType.pass, player: actor));
+    LogService.info('AI ${engine.players[actor].name} 不出');
+    return true;
+  }
+
+  /// 领出兜底：出最小的一张单牌，保证对局不会卡死。
+  bool _leadFallback(int actor, String reason) {
+    final hand = engine.players[actor].hand;
+    if (hand.isEmpty) {
+      LogService.error('$reason，且手牌为空');
+      return false;
+    }
+    final card = hand.last;
+    final outcome = engine.play(actor, [card]);
+    if (!outcome.ok) {
+      LogService.error('$reason，兜底出牌失败: ${outcome.error.message}');
+      return false;
+    }
+    LogService.warning('$reason，兜底出最小单张 ${card.displayName}');
+    _emitPlay(actor, outcome.combo);
+    return true;
   }
 
   void _emitPlay(int player, Combo? combo) {
