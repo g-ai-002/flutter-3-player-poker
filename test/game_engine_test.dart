@@ -147,6 +147,44 @@ void main() {
       final foreign = card(6);
       expect(engine.play(0, [foreign]).error, PlayError.cardsNotInHand);
     });
+
+    test('王炸翻倍但不结束对局', () {
+      final engine = startedEngine();
+      setHand(engine, 0, '9 16 17');
+      engine.currentPlayer = 0;
+      expect(engine.play(0, pick(engine, 0, '16 17')).ok, isTrue);
+      expect(engine.multiplier, 2);
+      expect(engine.phase, GamePhase.playing);
+      expect(engine.currentPlayer, 1);
+      expect(engine.players[0].hand.length, 1);
+    });
+
+    test('不是自己的回合无法出牌或不出', () {
+      final engine = startedEngine();
+      setHand(engine, 0, '3 4');
+      engine.currentPlayer = 1;
+      expect(
+        engine.play(0, [engine.players[0].hand.first]).error,
+        PlayError.notYourTurn,
+      );
+      expect(engine.pass(0), PlayError.notYourTurn);
+    });
+
+    test('重新开始会重置手牌、倍数与底牌', () {
+      final engine = startedEngine();
+      setHand(engine, 0, '3 3 3 3 9');
+      engine.currentPlayer = 0;
+      engine.play(0, pick(engine, 0, '3 3 3 3'));
+      expect(engine.multiplier, 2);
+
+      engine.start();
+      expect(engine.phase, GamePhase.bidding);
+      expect(engine.players.map((p) => p.hand.length), everyElement(17));
+      expect(engine.bottomCards.length, 3);
+      expect(engine.multiplier, 1);
+      expect(engine.landlord, isNull);
+      expect(engine.lastCombo, isNull);
+    });
   });
 
   group('结算', () {
