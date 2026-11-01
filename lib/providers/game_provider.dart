@@ -129,10 +129,7 @@ class GameProvider extends ChangeNotifier {
   }
 
   void newGame() {
-    driver.cancel();
-    _feedbackTimer?.cancel();
-    _feedback = null;
-    _selectedIds.clear();
+    _resetTurnState();
     _statsRecorded = false;
     _lastRecord = null;
     recorder.start();
@@ -147,16 +144,20 @@ class GameProvider extends ChangeNotifier {
   }
 
   void stop() {
-    driver.cancel();
-    _feedbackTimer?.cancel();
-    _feedback = null;
+    _resetTurnState();
     if (engine.phase == GamePhase.bidding ||
         engine.phase == GamePhase.doubling ||
         engine.phase == GamePhase.playing) {
       engine.phase = GamePhase.idle;
     }
-    _selectedIds.clear();
     notifyListeners();
+  }
+
+  void _resetTurnState() {
+    driver.cancel();
+    _feedbackTimer?.cancel();
+    _feedback = null;
+    _selectedIds.clear();
   }
 
   /// 叫分：0 不叫，1-3 分。

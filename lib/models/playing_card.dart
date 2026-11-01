@@ -22,20 +22,8 @@ class PlayingCard {
       suit == CardSuit.heart || suit == CardSuit.diamond || rank == 17;
 
   /// 整副牌各点数的张数：3-15 各 4 张，大小王各 1 张。
-  static const Map<int, int> rankTotals = {
-    3: 4,
-    4: 4,
-    5: 4,
-    6: 4,
-    7: 4,
-    8: 4,
-    9: 4,
-    10: 4,
-    11: 4,
-    12: 4,
-    13: 4,
-    14: 4,
-    15: 4,
+  static final Map<int, int> rankTotals = {
+    for (var rank = 3; rank <= 15; rank++) rank: 4,
     16: 1,
     17: 1,
   };

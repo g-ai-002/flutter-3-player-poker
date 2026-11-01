@@ -162,35 +162,20 @@ ThemeData _base({
         fontSize: 20,
         fontWeight: FontWeight.w700,
         color: scheme.onSurface,
-        fontFamily: fontFamily,
       ),
       titleMedium: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: scheme.onSurface,
-        fontFamily: fontFamily,
       ),
       titleSmall: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: scheme.onSurface,
-        fontFamily: fontFamily,
       ),
-      bodyLarge: TextStyle(
-        fontSize: 15,
-        color: scheme.onSurface,
-        fontFamily: fontFamily,
-      ),
-      bodyMedium: TextStyle(
-        fontSize: 14,
-        color: scheme.onSurface,
-        fontFamily: fontFamily,
-      ),
-      bodySmall: TextStyle(
-        fontSize: 12,
-        color: scheme.onSurfaceVariant,
-        fontFamily: fontFamily,
-      ),
-    ),
+      bodyLarge: TextStyle(fontSize: 15, color: scheme.onSurface),
+      bodyMedium: TextStyle(fontSize: 14, color: scheme.onSurface),
+      bodySmall: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+    ).apply(fontFamily: fontFamily),
   );
 }

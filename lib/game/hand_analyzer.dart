@@ -323,53 +323,50 @@ class HandAnalyzer {
     List<int> bodyRanks,
     int bodyEach,
     int count,
-  ) {
-    final body = _take(groups, bodyRanks, bodyEach);
-    if (body == null) return null;
-    final rest = Map<int, List<PlayingCard>>.from(groups)
-      ..removeWhere((rank, _) => bodyRanks.contains(rank));
-    final wings = _takeSingles(rest, count);
-    if (wings == null) return null;
-    return [...body, ...wings];
-  }
-
-  List<PlayingCard>? _takeSingles(
-    Map<int, List<PlayingCard>> groups,
-    int count,
-  ) {
-    final cards = <PlayingCard>[];
-    final entries = groups.entries.toList()
-      ..sort((a, b) {
-        final byCount = a.value.length.compareTo(b.value.length);
-        return byCount != 0 ? byCount : a.key.compareTo(b.key);
-      });
-    for (final entry in entries) {
-      for (final card in entry.value.take(2)) {
-        cards.add(card);
-        if (cards.length == count) return cards;
-      }
-    }
-    return null;
-  }
+  ) => _withWings(groups, bodyRanks, bodyEach, count, pair: false);
 
   List<PlayingCard>? _withPairs(
     Map<int, List<PlayingCard>> groups,
     List<int> bodyRanks,
     int bodyEach,
-    int pairCount,
-  ) {
+    int count,
+  ) => _withWings(groups, bodyRanks, bodyEach, count, pair: true);
+
+  /// 给三张/飞机/四张补翅膀：单张按组内张数从少到多取，对子按点数从小到大取。
+  List<PlayingCard>? _withWings(
+    Map<int, List<PlayingCard>> groups,
+    List<int> bodyRanks,
+    int bodyEach,
+    int count, {
+    required bool pair,
+  }) {
     final body = _take(groups, bodyRanks, bodyEach);
     if (body == null) return null;
     final rest = Map<int, List<PlayingCard>>.from(groups)
       ..removeWhere((rank, _) => bodyRanks.contains(rank));
-    final pairs =
-        rest.entries.where((entry) => entry.value.length >= 2).toList()
-          ..sort((a, b) => a.key.compareTo(b.key));
-    if (pairs.length < pairCount) return null;
-    final cards = <PlayingCard>[...body];
-    for (final entry in pairs.take(pairCount)) {
-      cards.addAll(entry.value.take(2));
+    if (pair) {
+      final pairs =
+          rest.entries.where((entry) => entry.value.length >= 2).toList()
+            ..sort((a, b) => a.key.compareTo(b.key));
+      if (pairs.length < count) return null;
+      return [
+        ...body,
+        for (final entry in pairs.take(count)) ...entry.value.take(2),
+      ];
     }
-    return cards;
+
+    final entries = rest.entries.toList()
+      ..sort((a, b) {
+        final byCount = a.value.length.compareTo(b.value.length);
+        return byCount != 0 ? byCount : a.key.compareTo(b.key);
+      });
+    final cards = [...body];
+    for (final entry in entries) {
+      for (final card in entry.value.take(2)) {
+        cards.add(card);
+        if (cards.length - body.length == count) return cards;
+      }
+    }
+    return null;
   }
 }

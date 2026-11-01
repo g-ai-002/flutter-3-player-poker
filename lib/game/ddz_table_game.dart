@@ -115,39 +115,45 @@ class FeltBackground extends Component with HasGameReference<DdzTableGame> {
     ),
   );
 
-  @override
-  void render(Canvas canvas) {
-    final size = game.size;
+  Vector2? _cachedSize;
+  Paint? _felt;
+  Paint? _rim;
+  Paint? _rimInner;
+  Rect? _oval;
+
+  /// 绒面渐变与描边按尺寸缓存，避免每帧重新创建着色器。
+  void _rebuild(Vector2 size) {
     final rect = Offset.zero & Size(size.x, size.y);
-    final felt = Paint()
+    _felt = Paint()
       ..shader = const RadialGradient(
         center: Alignment(0, -0.15),
         radius: 0.95,
         colors: [Color(0xFF1B6B46), Color(0xFF0F4229), Color(0xFF071A11)],
         stops: [0, 0.58, 1],
       ).createShader(rect);
-    canvas.drawRect(rect, felt);
-
-    final oval = Rect.fromCenter(
+    _oval = Rect.fromCenter(
       center: Offset(size.x * 0.5, size.y * 0.48),
       width: size.x * 0.93,
       height: size.y * 0.92,
     );
-    canvas.drawOval(
-      oval,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = const Color(0xFFD8B56A).withValues(alpha: 0.22),
-    );
-    canvas.drawOval(
-      oval.deflate(10),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.8
-        ..color = const Color(0xFFD8B56A).withValues(alpha: 0.12),
-    );
+    _rim = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = const Color(0xFFD8B56A).withValues(alpha: 0.22);
+    _rimInner = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8
+      ..color = const Color(0xFFD8B56A).withValues(alpha: 0.12);
+    _cachedSize = size;
+  }
 
+  @override
+  void render(Canvas canvas) {
+    final size = game.size;
+    if (_cachedSize != size || _felt == null) _rebuild(size);
+    canvas.drawRect(Offset.zero & Size(size.x, size.y), _felt!);
+    canvas.drawOval(_oval!, _rim!);
+    canvas.drawOval(_oval!.deflate(10), _rimInner!);
     _watermark.render(
       canvas,
       '斗',
@@ -162,6 +168,8 @@ class DustLayer extends Component with HasGameReference<DdzTableGame> {
 
   final math.Random _random;
   final List<_Dust> _particles = [];
+  final Paint _paint = Paint()
+    ..color = const Color(0xFFEBD6A4).withValues(alpha: 0.10);
   bool _seeded = false;
 
   @override
@@ -193,9 +201,11 @@ class DustLayer extends Component with HasGameReference<DdzTableGame> {
     final size = game.size;
     for (final particle in _particles) {
       final x = (particle.x + math.sin(particle.phase) * 0.015) * size.x;
-      final paint = Paint()
-        ..color = const Color(0xFFEBD6A4).withValues(alpha: 0.10);
-      canvas.drawCircle(Offset(x, particle.y * size.y), particle.radius, paint);
+      canvas.drawCircle(
+        Offset(x, particle.y * size.y),
+        particle.radius,
+        _paint,
+      );
     }
   }
 }

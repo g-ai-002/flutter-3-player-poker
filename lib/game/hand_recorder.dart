@@ -13,8 +13,6 @@ class HandRecorder {
   DateTime? _startedAt;
   final List<HandAction> _actions = [];
 
-  DateTime? get startedAt => _startedAt;
-
   List<HandAction> get actions => List.unmodifiable(_actions);
 
   /// 新对局开始时清空上一局记录。

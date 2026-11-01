@@ -14,7 +14,6 @@ GameResult fakeResult({
     antiSpring: false,
     multiplier: multiplier,
     scores: scores,
-    winner: landlordWon ? 0 : 1,
     landlord: 0,
   );
 }

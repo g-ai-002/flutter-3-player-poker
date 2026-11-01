@@ -69,7 +69,6 @@ class GameResult {
     required this.antiSpring,
     required this.multiplier,
     required this.scores,
-    required this.winner,
     required this.landlord,
   });
 
@@ -78,7 +77,6 @@ class GameResult {
   final bool antiSpring;
   final int multiplier;
   final List<int> scores;
-  final int winner;
   final int landlord;
 
   bool humanWon(bool isLandlord) => isLandlord ? landlordWon : !landlordWon;
@@ -402,7 +400,6 @@ class DdzEngine {
       antiSpring: antiSpring,
       multiplier: multiplier,
       scores: scores,
-      winner: winnerId,
       landlord: landlordId,
     );
     lastActionText = landlordWon ? '地主获胜' : '农民获胜';

@@ -44,8 +44,6 @@ class Combo {
 
   bool get isBomb => type == ComboType.bomb || type == ComboType.rocket;
 
-  int get size => cards.length;
-
   /// 去重签名：同牌型同点数结构视为同一候选。
   String get signature {
     final ranks = cards.map((c) => c.rank).toList()..sort();
