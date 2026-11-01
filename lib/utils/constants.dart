@@ -2,7 +2,7 @@ class AppConstants {
   AppConstants._();
 
   static const String appName = '斗地主';
-  static const String version = '0.1.0';
+  static const String version = '0.1.1';
   static const String appDirName = 'FlutterDdz';
 
   static const String prefKeyDarkMode = 'dark_mode';
