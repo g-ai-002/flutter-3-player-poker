@@ -9,6 +9,122 @@ import 'combo_detector.dart';
 class HandAnalyzer {
   const HandAnalyzer();
 
+  /// 估算清空手牌还需要多少手（贪心拆分，越小说明牌型越整齐）。
+  ///
+  /// 仅用于高手 AI 比较候选：按王炸、炸弹、顺子、连对、飞机、三张、对子、
+  /// 单张的顺序尽量合并，不追求最优解，但足够区分「拆牌」与「留牌」。
+  int estimatePlays(List<PlayingCard> hand) {
+    final counts = <int, int>{};
+    for (final card in hand) {
+      counts[card.rank] = (counts[card.rank] ?? 0) + 1;
+    }
+    var plays = 0;
+    if ((counts[16] ?? 0) > 0 && (counts[17] ?? 0) > 0) {
+      counts[16] = 0;
+      counts[17] = 0;
+      plays++;
+    }
+    for (var rank = 3; rank <= 15; rank++) {
+      if ((counts[rank] ?? 0) == 4) {
+        counts[rank] = 0;
+        plays++;
+      }
+    }
+    while (true) {
+      final straight = _longestRun(counts, 1, 5);
+      if (straight != null) {
+        _takeRun(counts, straight, 1);
+        plays++;
+        continue;
+      }
+      final pairRun = _longestRun(counts, 2, 3);
+      if (pairRun != null) {
+        _takeRun(counts, pairRun, 2);
+        plays++;
+        continue;
+      }
+      final plane = _longestRun(counts, 3, 2);
+      if (plane != null) {
+        _takeRun(counts, plane, 3);
+        plays++;
+        _takeWings(counts, plane.length, pair: false);
+        continue;
+      }
+      final triple = _firstRank(counts, 3);
+      if (triple != null) {
+        counts[triple] = counts[triple]! - 3;
+        plays++;
+        if (!_takeWings(counts, 1, pair: true)) {
+          _takeWings(counts, 1, pair: false);
+        }
+        continue;
+      }
+      final pair = _firstRank(counts, 2);
+      if (pair != null) {
+        counts[pair] = counts[pair]! - 2;
+        plays++;
+        continue;
+      }
+      if (_firstRank(counts, 1) != null) {
+        for (final count in counts.values) {
+          plays += count;
+        }
+      }
+      break;
+    }
+    return plays;
+  }
+
+  /// 连续 [minCount] 张以上、长度至少 [minLength] 的最长区间（3 到 A）。
+  List<int>? _longestRun(Map<int, int> counts, int minCount, int minLength) {
+    List<int>? best;
+    var start = -1;
+    for (var rank = 3; rank <= 15; rank++) {
+      final ok = rank <= 14 && (counts[rank] ?? 0) >= minCount;
+      if (ok) {
+        if (start < 0) start = rank;
+      } else if (start >= 0) {
+        final run = [for (var r = start; r < rank; r++) r];
+        if (run.length >= minLength &&
+            (best == null || run.length > best.length)) {
+          best = run;
+        }
+        start = -1;
+      }
+    }
+    return best;
+  }
+
+  void _takeRun(Map<int, int> counts, List<int> ranks, int each) {
+    for (final rank in ranks) {
+      counts[rank] = counts[rank]! - each;
+    }
+  }
+
+  /// 拆走翅膀；[pair] 为 true 时只拆对子。
+  bool _takeWings(Map<int, int> counts, int count, {required bool pair}) {
+    final need = pair ? 2 : 1;
+    final candidates =
+        counts.entries.where((entry) => entry.value >= need).toList()
+          ..sort((a, b) {
+            final byCount = a.value.compareTo(b.value);
+            return byCount != 0 ? byCount : a.key.compareTo(b.key);
+          });
+    for (var i = 0; i < count; i++) {
+      if (i >= candidates.length) return false;
+      final entry = candidates[i];
+      counts[entry.key] = entry.value - need;
+    }
+    return count > 0;
+  }
+
+  int? _firstRank(Map<int, int> counts, int minCount) {
+    for (var rank = 3; rank <= 17; rank++) {
+      if ((counts[rank] ?? 0) >= minCount) return rank;
+    }
+    return null;
+  }
+
   /// 自由出牌时的候选（不包含重复点数结构）。
   List<Combo> leadCandidates(List<PlayingCard> hand) {
     final groups = _group(hand);
