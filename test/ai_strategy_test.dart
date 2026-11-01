@@ -17,7 +17,11 @@ DdzEngine engineWith({
   final engine = DdzEngine(random: Random(11));
   engine.start();
   engine.currentPlayer = landlord;
-  engine.bid(landlord, true);
+  engine.bid(landlord, 1);
+  while (engine.phase == GamePhase.bidding) {
+    engine.bid(engine.currentPlayer, 0);
+  }
+  declineDoubling(engine);
   hands.forEach((player, ranks) {
     engine.players[player].hand
       ..clear()

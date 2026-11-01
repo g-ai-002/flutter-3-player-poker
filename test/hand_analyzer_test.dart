@@ -4,6 +4,7 @@ import 'package:flutter_3_player_poker/game/ai_player.dart';
 import 'package:flutter_3_player_poker/game/combo_detector.dart';
 import 'package:flutter_3_player_poker/game/game_engine.dart';
 import 'package:flutter_3_player_poker/game/hand_analyzer.dart';
+import 'package:flutter_3_player_poker/models/app_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
@@ -72,7 +73,11 @@ void main() {
       final engine = DdzEngine(random: Random(11));
       engine.start();
       engine.currentPlayer = landlord;
-      engine.bid(landlord, true);
+      engine.bid(landlord, 1);
+      while (engine.phase == GamePhase.bidding) {
+        engine.bid(engine.currentPlayer, 0);
+      }
+      declineDoubling(engine);
       hands.forEach((player, ranks) {
         engine.players[player].hand
           ..clear()
@@ -143,8 +148,38 @@ void main() {
       final strong = handOf('16 17 2 2 2 14 14 13 12 11');
       final weak = handOf('3 4 5 6 7 8 9 10 11 12');
       final ai = AiPlayer(random: Random(3));
-      expect(ai.shouldCall(strong), isTrue);
-      expect(ai.shouldCall(weak), isFalse);
+      expect(ai.bidScoreFor(strong, 0), greaterThan(0));
+      expect(ai.bidScoreFor(weak, 0), 0);
+    });
+
+    test('拆牌估算：顺子、炸弹与王炸各算一手', () {
+      expect(analyzer.estimatePlays(handOf('3 4 5 6 7')), 1);
+      expect(analyzer.estimatePlays(handOf('3 3 3 3')), 1);
+      expect(analyzer.estimatePlays(handOf('16 17')), 1);
+      expect(analyzer.estimatePlays(handOf('3 5 7')), 3);
+    });
+
+    test('叫分不会低于或等于场上最高分', () {
+      final strong = handOf('16 17 2 2 2 14 14 13 12 11');
+      final ai = AiPlayer(random: Random(4), level: AiLevel.hard);
+      expect(ai.bidScoreFor(strong, 0), 3);
+      expect(ai.bidScoreFor(strong, 2), 3);
+      expect(ai.bidScoreFor(strong, 3), 0);
+      expect(ai.bidScoreFor(handOf('3 4 5 6 7'), 0), 0);
+    });
+
+    test('加倍决策：强牌加倍、弱牌不加倍', () {
+      final engine = engineWith(
+        landlord: 0,
+        hands: {0: '16 17 2 2 2 14 14', 1: '4 5', 2: '6 7'},
+      );
+      final ai = AiPlayer(random: Random(5), level: AiLevel.hard);
+      expect(ai.shouldDouble(engine), isTrue);
+
+      engine.players[0].hand
+        ..clear()
+        ..addAll(handOf('3 4 5 6 7 8 9 10'));
+      expect(ai.shouldDouble(engine), isFalse);
     });
   });
 }

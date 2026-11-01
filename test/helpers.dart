@@ -1,3 +1,4 @@
+import 'package:flutter_3_player_poker/game/game_engine.dart';
 import 'package:flutter_3_player_poker/models/playing_card.dart';
 
 int _nextId = 0;
@@ -29,4 +30,12 @@ List<PlayingCard> handOf(String ranks) {
   return cards(
     ranks.split(' ').where((value) => value.isNotEmpty).map(parseRank).toList(),
   );
+}
+
+/// 叫分后依次让三方选择不加倍，把引擎推进到出牌阶段。
+void declineDoubling(DdzEngine engine) {
+  var guard = 0;
+  while (engine.phase == GamePhase.doubling && guard++ < 3) {
+    engine.doubleUp(engine.currentPlayer, false);
+  }
 }

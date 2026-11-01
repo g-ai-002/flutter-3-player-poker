@@ -10,7 +10,11 @@ DdzEngine startedEngine({int seed = 7, int landlord = 0}) {
   final engine = DdzEngine(random: Random(seed));
   engine.start();
   engine.currentPlayer = landlord;
-  engine.bid(landlord, true);
+  engine.bid(landlord, 1);
+  while (engine.phase == GamePhase.bidding) {
+    engine.bid(engine.currentPlayer, 0);
+  }
+  declineDoubling(engine);
   return engine;
 }
 
@@ -34,7 +38,7 @@ List<PlayingCard> pick(DdzEngine engine, int player, String ranks) {
 }
 
 void main() {
-  group('发牌与叫地主', () {
+  group('发牌与叫分', () {
     test('54 张牌三人各 17 张，留 3 张底牌', () {
       final engine = DdzEngine(random: Random(3));
       engine.start();
@@ -49,7 +53,7 @@ void main() {
       expect(ids.length, 54);
     });
 
-    test('叫地主后收底牌并先出', () {
+    test('叫分后收底牌并先出', () {
       final engine = startedEngine(landlord: 2);
       expect(engine.landlord, 2);
       expect(engine.players[2].isLandlord, isTrue);
@@ -59,11 +63,50 @@ void main() {
       expect(engine.lastCombo, isNull);
     });
 
+    test('叫 3 分立即成为地主，底分与倍数同步', () {
+      final engine = DdzEngine(random: Random(4));
+      engine.start();
+      final landlord = engine.currentPlayer;
+      expect(engine.bid(landlord, 3), isTrue);
+      expect(engine.landlord, landlord);
+      expect(engine.baseScore, 3);
+      expect(engine.multiplier, 3);
+      expect(engine.phase, GamePhase.doubling);
+    });
+
+    test('叫分必须高于当前最高分', () {
+      final engine = DdzEngine(random: Random(6));
+      engine.start();
+      final first = engine.currentPlayer;
+      expect(engine.bid(first, 2), isTrue);
+      final second = engine.currentPlayer;
+      expect(engine.bid(second, 1), isFalse);
+      expect(engine.bid(second, 2), isFalse);
+      expect(engine.bid(second, 3), isTrue);
+      expect(engine.landlord, second);
+      expect(engine.baseScore, 3);
+    });
+
+    test('最高分者成为地主，其余玩家叫完后结束', () {
+      final engine = DdzEngine(random: Random(8));
+      engine.start();
+      final first = engine.currentPlayer;
+      expect(engine.bid(first, 1), isTrue);
+      final second = engine.currentPlayer;
+      expect(engine.bid(second, 2), isTrue);
+      final third = engine.currentPlayer;
+      expect(engine.bid(third, 0), isTrue);
+      expect(engine.landlord, second);
+      expect(engine.baseScore, 2);
+      expect(engine.multiplier, 2);
+      expect(engine.phase, GamePhase.doubling);
+    });
+
     test('三家不叫则重新发牌', () {
       final engine = DdzEngine(random: Random(5));
       engine.start();
       while (engine.phase == GamePhase.bidding) {
-        expect(engine.bid(engine.currentPlayer, false), isTrue);
+        expect(engine.bid(engine.currentPlayer, 0), isTrue);
       }
       expect(engine.phase, GamePhase.redeal);
       expect(engine.landlord, isNull);
@@ -73,8 +116,43 @@ void main() {
       final engine = DdzEngine(random: Random(9));
       engine.start();
       final other = (engine.currentPlayer + 1) % 3;
-      expect(engine.bid(other, true), isFalse);
+      expect(engine.bid(other, 1), isFalse);
       expect(engine.phase, GamePhase.bidding);
+    });
+  });
+
+  group('加倍', () {
+    test('三家依次选择，加倍使倍数翻倍', () {
+      final engine = DdzEngine(random: Random(12));
+      engine.start();
+      final landlord = engine.currentPlayer;
+      engine.bid(landlord, 2);
+      while (engine.phase == GamePhase.bidding) {
+        engine.bid(engine.currentPlayer, 0);
+      }
+      expect(engine.phase, GamePhase.doubling);
+      expect(engine.currentPlayer, landlord);
+
+      expect(engine.doubleUp(landlord, true), isTrue);
+      expect(engine.multiplier, 4);
+      final farmer = engine.currentPlayer;
+      expect(engine.doubleUp(farmer, false), isTrue);
+      expect(engine.multiplier, 4);
+      expect(engine.doubleUp(engine.currentPlayer, true), isTrue);
+      expect(engine.multiplier, 8);
+      expect(engine.phase, GamePhase.playing);
+      expect(engine.currentPlayer, landlord);
+    });
+
+    test('未轮到或阶段不符时加倍被拒绝', () {
+      final engine = DdzEngine(random: Random(13));
+      engine.start();
+      final landlord = engine.currentPlayer;
+      engine.bid(landlord, 1);
+      final other = (landlord + 1) % 3;
+      expect(engine.doubleUp(other, true), isFalse);
+      declineDoubling(engine);
+      expect(engine.doubleUp(landlord, true), isFalse);
     });
   });
 

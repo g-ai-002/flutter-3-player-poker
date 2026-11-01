@@ -13,10 +13,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_3_player_poker/game/game_engine.dart';
+import 'package:flutter_3_player_poker/models/app_settings.dart';
+
 Future<SettingsProvider> makeSettings() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   return SettingsProvider(StorageService.test(prefs));
+}
+
+/// 玩家叫 3 分成为地主，三方不加倍，直接进入出牌阶段。
+void takeLandlord(GameProvider game) {
+  game.engine.currentPlayer = 0;
+  game.bid(3);
+  while (game.engine.phase == GamePhase.doubling) {
+    game.engine.doubleUp(game.engine.currentPlayer, false);
+  }
 }
 
 Widget wrapApp(Widget home, {SettingsProvider? settings, GameProvider? game}) {
@@ -77,8 +89,7 @@ void main() {
     addTearDown(game.dispose);
 
     game.newGame();
-    game.engine.currentPlayer = 0;
-    game.bid(true);
+    takeLandlord(game);
 
     await tester.pumpWidget(
       wrapApp(const GamePage(), settings: settings, game: game),
@@ -109,8 +120,7 @@ void main() {
     final game = GameProvider(settings: settings, aiDelayOverride: 0);
     addTearDown(game.dispose);
     game.newGame();
-    game.engine.currentPlayer = 0;
-    game.bid(true);
+    takeLandlord(game);
 
     for (final size in [const Size(360, 780), const Size(780, 360)]) {
       tester.view.physicalSize = size;
@@ -131,8 +141,7 @@ void main() {
     final game = GameProvider(settings: settings, aiDelayOverride: 0);
     addTearDown(game.dispose);
     game.newGame();
-    game.engine.currentPlayer = 0;
-    game.bid(true);
+    takeLandlord(game);
 
     for (final size in [
       const Size(768, 1024),
@@ -158,8 +167,7 @@ void main() {
     addTearDown(game.dispose);
 
     game.newGame();
-    game.engine.currentPlayer = 0;
-    game.bid(true);
+    takeLandlord(game);
     game.engine.players[0].hand
       ..clear()
       ..add(game.engine.bottomCards.first);
@@ -179,24 +187,65 @@ void main() {
     expect(find.text('小智'), findsWidgets);
     expect(find.text('阿福'), findsWidgets);
     expect(find.byType(ScoreBoard), findsOneWidget);
-    expect(find.text('+4'), findsNWidgets(2));
-    expect(find.text('-2'), findsNWidgets(2));
+    expect(find.text('+12'), findsNWidgets(2));
+    expect(find.text('-6'), findsNWidgets(2));
   });
 
-  testWidgets('设置页展示主题与 AI 速度选项', (tester) async {
+  testWidgets('设置页展示主题、AI 难度与速度选项', (tester) async {
     final settings = await makeSettings();
     await tester.pumpWidget(wrapApp(const SettingsPage(), settings: settings));
     await tester.pump();
 
     expect(find.text('深色模式'), findsOneWidget);
+    expect(find.text('AI 难度'), findsOneWidget);
+    expect(find.text('入门'), findsOneWidget);
+    expect(find.text('高手'), findsOneWidget);
     expect(find.text('AI 思考速度'), findsOneWidget);
     expect(find.text('快速'), findsOneWidget);
-    expect(find.text('标准'), findsOneWidget);
+    expect(find.text('标准'), findsWidgets);
     expect(find.text('从容'), findsOneWidget);
+
+    await tester.tap(find.text('高手'));
+    await tester.pump();
+    expect(settings.aiLevel, AiLevel.hard);
 
     await tester.tap(find.byType(Switch));
     await tester.pump();
     expect(settings.darkMode, isTrue);
+  });
+
+  testWidgets('叫分浮层展示分档并可直接叫 3 分', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 10000);
+    addTearDown(game.dispose);
+    game.newGame();
+    game.engine.currentPlayer = 0;
+
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('轮到你叫分'), findsWidgets);
+    expect(find.text('不叫'), findsOneWidget);
+    expect(find.text('1 分'), findsOneWidget);
+    expect(find.text('2 分'), findsOneWidget);
+    expect(find.text('3 分'), findsOneWidget);
+
+    await tester.tap(find.text('3 分'));
+    await tester.pump();
+
+    expect(game.engine.landlord, 0);
+    expect(game.engine.baseScore, 3);
+    expect(find.text('是否加倍？'), findsWidgets);
+
+    await tester.tap(find.text('不加倍'));
+    await tester.pump();
+    expect(game.engine.phase, GamePhase.doubling);
+    expect(game.engine.currentPlayer, 1);
+    expect(game.engine.multiplier, 3);
+    expect(find.text('是否加倍？'), findsNothing);
+    game.stop();
   });
 
   testWidgets('统计页空态展示', (tester) async {
