@@ -2,17 +2,25 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../game/action_announcer.dart';
 import '../game/ai_player.dart';
 import '../game/combo.dart';
 import '../game/combo_detector.dart';
 import '../game/game_engine.dart';
 import '../game/table_events.dart';
+import '../game/turn_driver.dart';
 import '../models/playing_card.dart';
 import '../services/log_service.dart';
 import '../services/stats_service.dart';
 import 'settings_provider.dart';
 
 /// 对局状态与 AI 调度：把纯逻辑引擎包装成界面可直接消费的 ChangeNotifier。
+///
+/// 具体职责拆分：
+/// - [DdzEngine]：发牌、牌型、轮次与计分等纯规则；
+/// - [TurnDriver]：AI 回合的定时调度与异常兜底；
+/// - [ActionAnnouncer]：动作事件与日志；
+/// - 本类：面向界面的选牌状态、人类操作入口与轻提示。
 class GameProvider extends ChangeNotifier {
   GameProvider({
     required this.settings,
@@ -22,32 +30,45 @@ class GameProvider extends ChangeNotifier {
     this.aiDelayOverride,
   }) : engine = engine ?? DdzEngine(),
        ai = ai ?? AiPlayer(),
-       events = events ?? TableEventBus();
+       events = events ?? TableEventBus() {
+    announcer = ActionAnnouncer(engine: this.engine, events: this.events);
+    driver = TurnDriver(
+      engine: this.engine,
+      ai: this.ai,
+      announcer: announcer,
+      level: () => settings.aiLevel,
+      speedDelayMs: () => settings.aiSpeed.delayMs,
+      delayOverrideMs: aiDelayOverride,
+      onChanged: _notify,
+      onFeedback: _showFeedback,
+      onRedeal: newGame,
+    );
+  }
 
   final SettingsProvider settings;
   final DdzEngine engine;
   final AiPlayer ai;
   final TableEventBus events;
 
+  late final ActionAnnouncer announcer;
+  late final TurnDriver driver;
+
   /// 测试时注入固定延迟；为 0 时仍需等待事件队列。
   final int? aiDelayOverride;
 
   final Set<int> _selectedIds = {};
-  Timer? _timer;
   Timer? _feedbackTimer;
-  int? _thinkingPlayer;
   String? _feedback;
   bool _statsRecorded = false;
 
   List<PlayingCard> get humanHand => engine.players[0].hand;
   Set<int> get selectedIds => Set.unmodifiable(_selectedIds);
-  int? get thinkingPlayer => _thinkingPlayer;
+  int? get thinkingPlayer => driver.thinkingPlayer;
   String? get feedback => _feedback;
   GamePhase get phase => engine.phase;
   bool get humanIsLandlord => engine.players[0].isLandlord;
   bool get isHumanTurn => engine.isHumanTurn;
   bool get canPass => engine.isHumanTurn && engine.lastCombo != null;
-  bool get isWaitingForAi => _thinkingPlayer != null;
   GameResult? get result => engine.result;
 
   List<PlayingCard> get selectedCards =>
@@ -87,26 +108,25 @@ class GameProvider extends ChangeNotifier {
   }
 
   void newGame() {
-    _timer?.cancel();
+    driver.cancel();
     _feedbackTimer?.cancel();
     _feedback = null;
     _selectedIds.clear();
-    _thinkingPlayer = null;
     _statsRecorded = false;
-    ai.level = settings.aiLevel;
     engine.start();
     LogService.info(
-      '新对局开始，叫分顺序: ${engine.currentPlayer}，AI 难度: ${ai.level.label}',
+      '新对局开始，叫分顺序: ${engine.currentPlayer}，AI 难度: '
+      '${settings.aiLevel.label}',
     );
     events.emit(const TableEvent(type: TableEventType.deal));
     notifyListeners();
-    _schedule();
+    driver.schedule();
   }
 
   void stop() {
-    _timer?.cancel();
+    driver.cancel();
     _feedbackTimer?.cancel();
-    _thinkingPlayer = null;
+    _feedback = null;
     if (engine.phase == GamePhase.bidding ||
         engine.phase == GamePhase.doubling ||
         engine.phase == GamePhase.playing) {
@@ -120,25 +140,18 @@ class GameProvider extends ChangeNotifier {
   void bid(int score) {
     if (engine.phase != GamePhase.bidding || engine.currentPlayer != 0) return;
     if (!engine.bid(0, score)) return;
-    events.emit(
-      TableEvent(
-        type: TableEventType.bid,
-        player: 0,
-        text: score == 0 ? '不叫' : '叫 $score 分',
-      ),
-    );
-    LogService.info('玩家${score == 0 ? '不叫' : '叫 $score 分'}');
-    notifyListeners();
-    _schedule();
+    announcer.bid(0);
+    _notify();
+    driver.schedule();
   }
 
   /// 加倍：仅加倍阶段轮到人类玩家时可用。
   void doubleUp(bool doubled) {
     if (engine.phase != GamePhase.doubling || engine.currentPlayer != 0) return;
     if (!engine.doubleUp(0, doubled)) return;
-    LogService.info('玩家${doubled ? '加倍' : '不加倍'}');
-    notifyListeners();
-    _schedule();
+    announcer.doubleUp(0);
+    _notify();
+    driver.schedule();
   }
 
   void toggleCard(int id) {
@@ -146,12 +159,6 @@ class GameProvider extends ChangeNotifier {
     if (!_selectedIds.remove(id)) {
       _selectedIds.add(id);
     }
-    notifyListeners();
-  }
-
-  void clearSelection() {
-    if (_selectedIds.isEmpty) return;
-    _selectedIds.clear();
     notifyListeners();
   }
 
@@ -164,9 +171,9 @@ class GameProvider extends ChangeNotifier {
       return;
     }
     _selectedIds.clear();
-    _emitPlay(0, outcome.combo);
-    notifyListeners();
-    _schedule();
+    announcer.play(0, outcome.combo);
+    _notify();
+    driver.schedule();
   }
 
   void pass() {
@@ -177,14 +184,14 @@ class GameProvider extends ChangeNotifier {
       return;
     }
     _selectedIds.clear();
-    events.emit(const TableEvent(type: TableEventType.pass, player: 0));
-    LogService.info('玩家不出');
-    notifyListeners();
-    _schedule();
+    announcer.pass(0);
+    _notify();
+    driver.schedule();
   }
 
   void hint() {
     if (!engine.isHumanTurn) return;
+    ai.level = settings.aiLevel;
     final cards = ai.hint(engine);
     if (cards == null) {
       _selectedIds.clear();
@@ -194,175 +201,15 @@ class GameProvider extends ChangeNotifier {
     _selectedIds
       ..clear()
       ..addAll(cards.map((card) => card.id));
+    _feedbackTimer?.cancel();
     _feedback = null;
     notifyListeners();
   }
 
-  void _schedule() {
-    _timer?.cancel();
-    ai.level = settings.aiLevel;
-    switch (engine.phase) {
-      case GamePhase.redeal:
-        _thinkingPlayer = null;
-        _showFeedback('三家都不叫，重新发牌');
-        _timer = Timer(const Duration(milliseconds: 1500), newGame);
-        return;
-      case GamePhase.finished:
-        _thinkingPlayer = null;
-        _recordStats();
-        notifyListeners();
-        return;
-      case GamePhase.idle:
-        return;
-      case GamePhase.bidding:
-      case GamePhase.doubling:
-      case GamePhase.playing:
-        if (engine.currentPlayer == 0) {
-          _thinkingPlayer = null;
-          notifyListeners();
-          return;
-        }
-    }
-
-    _thinkingPlayer = engine.currentPlayer;
+  /// 状态变化的统一出口：顺带在终局时写一次生涯统计。
+  void _notify() {
+    _recordStats();
     notifyListeners();
-    final delay = Duration(
-      milliseconds: aiDelayOverride ?? settings.aiSpeed.delayMs,
-    );
-    _timer = Timer(delay, () {
-      switch (engine.phase) {
-        case GamePhase.bidding:
-          _aiBid();
-        case GamePhase.doubling:
-          _aiDouble();
-        case GamePhase.playing:
-          _aiPlay();
-        default:
-          break;
-      }
-    });
-  }
-
-  void _aiBid() {
-    if (engine.phase != GamePhase.bidding) return;
-    final actor = engine.currentPlayer;
-    final score = ai.bidScore(engine);
-    engine.bid(actor, score);
-    _thinkingPlayer = null;
-    events.emit(
-      TableEvent(
-        type: TableEventType.bid,
-        player: actor,
-        text: score == 0 ? '不叫' : '叫 $score 分',
-      ),
-    );
-    LogService.info(
-      'AI ${engine.players[actor].name} ${score == 0 ? '不叫' : '叫 $score 分'}',
-    );
-    notifyListeners();
-    _schedule();
-  }
-
-  void _aiDouble() {
-    if (engine.phase != GamePhase.doubling) return;
-    final actor = engine.currentPlayer;
-    final doubled = ai.shouldDouble(engine);
-    if (!engine.doubleUp(actor, doubled)) {
-      LogService.error('AI 加倍被拒绝: 玩家 $actor');
-      notifyListeners();
-      return;
-    }
-    _thinkingPlayer = null;
-    LogService.info(
-      'AI ${engine.players[actor].name} ${doubled ? '加倍' : '不加倍'}',
-    );
-    notifyListeners();
-    _schedule();
-  }
-
-  void _aiPlay() {
-    if (engine.phase != GamePhase.playing) return;
-    final actor = engine.currentPlayer;
-    final cards = ai.choose(engine);
-    _thinkingPlayer = null;
-    var advanced = false;
-    if (cards == null) {
-      if (engine.lastCombo == null) {
-        advanced = _leadFallback(actor, 'AI 未给出领出牌');
-      } else {
-        advanced = _passMove(actor);
-      }
-    } else {
-      final outcome = engine.play(actor, cards);
-      if (outcome.ok) {
-        _emitPlay(actor, outcome.combo);
-        advanced = true;
-      } else {
-        LogService.error(
-          'AI 出牌被拒绝: ${outcome.error.message} '
-          '[${cards.map((card) => card.displayName).join(' ')}]',
-        );
-        advanced = engine.lastCombo != null
-            ? _passMove(actor)
-            : _leadFallback(actor, 'AI 领出被拒绝');
-      }
-    }
-    notifyListeners();
-    if (advanced) {
-      _schedule();
-    } else {
-      _showFeedback('AI 出牌异常，请重新开始本局');
-    }
-  }
-
-  bool _passMove(int actor) {
-    final error = engine.pass(actor);
-    if (error != PlayError.none) {
-      LogService.error('AI 不出被拒绝: ${error.message}');
-      return false;
-    }
-    events.emit(TableEvent(type: TableEventType.pass, player: actor));
-    LogService.info('AI ${engine.players[actor].name} 不出');
-    return true;
-  }
-
-  /// 领出兜底：出最小的一张单牌，保证对局不会卡死。
-  bool _leadFallback(int actor, String reason) {
-    final hand = engine.players[actor].hand;
-    if (hand.isEmpty) {
-      LogService.error('$reason，且手牌为空');
-      return false;
-    }
-    final card = hand.last;
-    final outcome = engine.play(actor, [card]);
-    if (!outcome.ok) {
-      LogService.error('$reason，兜底出牌失败: ${outcome.error.message}');
-      return false;
-    }
-    LogService.warning('$reason，兜底出最小单张 ${card.displayName}');
-    _emitPlay(actor, outcome.combo);
-    return true;
-  }
-
-  void _emitPlay(int player, Combo? combo) {
-    if (combo == null) return;
-    events.emit(
-      TableEvent(type: TableEventType.play, player: player, cards: combo.cards),
-    );
-    if (combo.isBomb) {
-      events.emit(
-        TableEvent(
-          type: TableEventType.blast,
-          player: player,
-          text: combo.description,
-        ),
-      );
-    }
-    LogService.info(
-      '${engine.players[player].name} 出牌: ${combo.description} '
-      '[${combo.cards.map((c) => c.displayName).join(' ')}], '
-      '剩余 ${engine.players[player].hand.length} 张',
-    );
   }
 
   void _showFeedback(String message) {
@@ -389,7 +236,7 @@ class GameProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _timer?.cancel();
+    driver.dispose();
     _feedbackTimer?.cancel();
     events.dispose();
     super.dispose();

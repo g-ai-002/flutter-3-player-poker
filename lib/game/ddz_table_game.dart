@@ -83,6 +83,7 @@ class DdzTableGame extends FlameGame {
         );
       case TableEventType.pass:
       case TableEventType.bid:
+      case TableEventType.double:
         break;
     }
   }

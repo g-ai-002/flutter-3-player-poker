@@ -1,6 +1,6 @@
 import '../models/playing_card.dart';
 
-enum TableEventType { deal, play, pass, bid, blast }
+enum TableEventType { deal, play, pass, bid, double, blast }
 
 /// 牌桌动画事件：由对局逻辑发出，Flame 场景消费。
 class TableEvent {
