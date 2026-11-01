@@ -12,7 +12,3 @@ String formatLogTimestamp(DateTime time) =>
 
 String formatLogLine(DateTime time, String level, String message) =>
     '[${formatLogTimestamp(time)}][$level] $message';
-
-String formatDateTime(DateTime date) =>
-    '${date.year}-${pad2(date.month)}-${pad2(date.day)} '
-    '${pad2(date.hour)}:${pad2(date.minute)}';

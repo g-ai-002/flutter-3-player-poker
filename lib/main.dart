@@ -32,6 +32,10 @@ Future<void> main() async {
     );
     FlutterError.presentError(details);
   };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    LogService.error('未捕获的异步异常', error, stack);
+    return false;
+  };
 
   runApp(PokerApp(storage: storage));
 }

@@ -19,11 +19,13 @@ class LogService {
   DateTime? _logDate;
   bool _initialized = false;
   DateTime Function() _now = DateTime.now;
+  int _writesSinceRotateCheck = 0;
 
   static const int _maxBufferLines = 2000;
   static const int _maxEarlyLines = 500;
   static const int _maxFileSize = 5 * 1024 * 1024;
   static const int _maxRetentionDays = 7;
+  static const int _rotateCheckInterval = 64;
 
   LogService._();
 
@@ -137,10 +139,14 @@ class LogService {
       if (file != null) {
         _logFile = file;
         _logDate = now;
+        _writesSinceRotateCheck = 0;
         _cleanOldLogs();
       }
       return;
     }
+    // 文件大小检查是同步 IO，按固定条数降频，避免每条日志都 stat 一次。
+    if (++_writesSinceRotateCheck < _rotateCheckInterval) return;
+    _writesSinceRotateCheck = 0;
     _rotateIfNeeded();
   }
 
