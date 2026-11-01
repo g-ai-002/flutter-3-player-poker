@@ -112,7 +112,6 @@ class TurnDriver {
     }
     _thinkingPlayer = null;
     announcer.bid(actor);
-    onChanged();
     schedule();
   }
 
@@ -132,7 +131,6 @@ class TurnDriver {
     }
     _thinkingPlayer = null;
     announcer.doubleUp(actor);
-    onChanged();
     schedule();
   }
 
@@ -163,10 +161,10 @@ class TurnDriver {
             : _leadFallback(actor, 'AI 领出被拒绝');
       }
     }
-    onChanged();
     if (advanced) {
       schedule();
     } else {
+      onChanged();
       onFeedback('AI 出牌异常，请重新开始本局');
     }
   }
