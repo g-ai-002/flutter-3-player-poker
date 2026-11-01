@@ -6,6 +6,7 @@ import '../game/ddz_table_game.dart';
 import '../game/game_engine.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/confirm_dialog.dart';
 import 'game/game_action_bar.dart';
 import 'game/game_overlays.dart';
 import 'game/game_top_bar.dart';
@@ -37,24 +38,14 @@ class _GamePageState extends State<GamePage> {
     if (provider.phase == GamePhase.bidding ||
         provider.phase == GamePhase.doubling ||
         provider.phase == GamePhase.playing) {
-      final leave = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('离开对局？'),
-          content: const Text('当前对局进度不会保存。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('继续对局'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('离开'),
-            ),
-          ],
-        ),
+      final leave = await showConfirmDialog(
+        context,
+        title: '离开对局？',
+        message: '当前对局进度不会保存。',
+        confirmLabel: '离开',
+        cancelLabel: '继续对局',
       );
-      if (leave != true) return;
+      if (!leave) return;
     }
     provider.stop();
     if (mounted) Navigator.of(context).pop();
@@ -62,24 +53,13 @@ class _GamePageState extends State<GamePage> {
 
   Future<void> _restart() async {
     final provider = context.read<GameProvider>();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('重新开始？'),
-        content: const Text('将放弃当前手牌，重新发牌。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('重新开始'),
-          ),
-        ],
-      ),
+    final ok = await showConfirmDialog(
+      context,
+      title: '重新开始？',
+      message: '将放弃当前手牌，重新发牌。',
+      confirmLabel: '重新开始',
     );
-    if (ok == true) provider.newGame();
+    if (ok) provider.newGame();
   }
 
   @override

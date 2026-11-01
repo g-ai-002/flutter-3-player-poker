@@ -4,6 +4,7 @@ import '../models/hand_record.dart';
 import '../services/hand_history_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../widgets/confirm_dialog.dart';
 import 'hand_record_page.dart';
 
 /// 牌谱列表：最近 20 局的胜负、倍数与得分，可进入详情。
@@ -11,24 +12,13 @@ class HandHistoryPage extends StatelessWidget {
   const HandHistoryPage({super.key});
 
   Future<void> _clear(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('清空牌谱？'),
-        content: const Text('最近的对局记录将全部删除，此操作无法撤销。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('清空'),
-          ),
-        ],
-      ),
+    final ok = await showConfirmDialog(
+      context,
+      title: '清空牌谱？',
+      message: '最近的对局记录将全部删除，此操作无法撤销。',
+      confirmLabel: '清空',
     );
-    if (ok == true) await HandHistoryService.instance.clear();
+    if (ok) await HandHistoryService.instance.clear();
   }
 
   @override

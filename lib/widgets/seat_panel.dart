@@ -97,57 +97,25 @@ class SeatPanel extends StatelessWidget {
                   ),
                 ),
                 if (player.isLandlord)
-                  Positioned(
+                  const Positioned(
                     right: -12,
                     top: -6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: kGold,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: const Color(0xFF5A3D0C),
-                          width: 0.6,
-                        ),
-                      ),
-                      child: const Text(
-                        '地主',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF3A2606),
-                        ),
-                      ),
+                    child: _SeatBadge(
+                      text: '地主',
+                      background: kGold,
+                      foreground: Color(0xFF3A2606),
+                      borderColor: Color(0xFF5A3D0C),
                     ),
                   ),
                 if (revealed)
                   Positioned(
                     left: -12,
                     top: -6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2C4A38),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: kGold.withValues(alpha: 0.7),
-                          width: 0.6,
-                        ),
-                      ),
-                      child: const Text(
-                        '明牌',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: kGoldSoft,
-                        ),
-                      ),
+                    child: _SeatBadge(
+                      text: '明牌',
+                      background: const Color(0xFF2C4A38),
+                      foreground: kGoldSoft,
+                      borderColor: kGold.withValues(alpha: 0.7),
                     ),
                   ),
               ],
@@ -205,6 +173,40 @@ class SeatPanel extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SeatBadge extends StatelessWidget {
+  const _SeatBadge({
+    required this.text,
+    required this.background,
+    required this.foreground,
+    required this.borderColor,
+  });
+
+  final String text;
+  final Color background;
+  final Color foreground;
+  final Color borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: borderColor, width: 0.6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          color: foreground,
         ),
       ),
     );

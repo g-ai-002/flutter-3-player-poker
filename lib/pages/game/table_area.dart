@@ -7,6 +7,16 @@ import '../../widgets/played_cards_view.dart';
 import '../../widgets/playing_card_view.dart';
 import '../../widgets/seat_panel.dart';
 
+/// 玩家最近一手的出牌区。
+Widget _pile(PlayerState player, double maxWidth) {
+  return PlayedCardsView(
+    cards: player.lastPlay,
+    combo: player.lastCombo,
+    passed: player.lastPassed,
+    maxWidth: maxWidth,
+  );
+}
+
 /// 牌桌中央区域：横屏时两侧座位并排，竖屏时座位在上、出牌区居中。
 class GameTableArea extends StatelessWidget {
   const GameTableArea({
@@ -89,12 +99,7 @@ class GameTableArea extends StatelessWidget {
                 const SizedBox(height: 10),
                 StatusInfo(provider: provider),
                 const SizedBox(height: 8),
-                PlayedCardsView(
-                  cards: engine.players[0].lastPlay,
-                  combo: engine.players[0].lastCombo,
-                  passed: engine.players[0].lastPassed,
-                  maxWidth: 230,
-                ),
+                _pile(engine.players[0], 230),
               ],
             ),
           ),
@@ -136,12 +141,7 @@ class GameTableArea extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: Padding(
                     padding: const EdgeInsets.only(left: 10),
-                    child: PlayedCardsView(
-                      cards: left.lastPlay,
-                      combo: left.lastCombo,
-                      passed: left.lastPassed,
-                      maxWidth: 170,
-                    ),
+                    child: _pile(left, 170),
                   ),
                 ),
               ),
@@ -154,12 +154,7 @@ class GameTableArea extends StatelessWidget {
                   alignment: Alignment.centerRight,
                   child: Padding(
                     padding: const EdgeInsets.only(right: 10),
-                    child: PlayedCardsView(
-                      cards: right.lastPlay,
-                      combo: right.lastCombo,
-                      passed: right.lastPassed,
-                      maxWidth: 170,
-                    ),
+                    child: _pile(right, 170),
                   ),
                 ),
               ),
@@ -188,16 +183,7 @@ class _SideColumn extends StatelessWidget {
       padding: EdgeInsets.only(left: isLeft ? 10 : 4, right: isLeft ? 4 : 10),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          seat,
-          const SizedBox(height: 10),
-          PlayedCardsView(
-            cards: player.lastPlay,
-            combo: player.lastCombo,
-            passed: player.lastPassed,
-            maxWidth: 160,
-          ),
-        ],
+        children: [seat, const SizedBox(height: 10), _pile(player, 160)],
       ),
     );
   }

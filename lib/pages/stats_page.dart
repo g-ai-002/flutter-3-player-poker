@@ -3,29 +3,19 @@ import 'package:flutter/material.dart';
 import '../services/stats_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/constants.dart';
+import '../widgets/confirm_dialog.dart';
 
 class StatsPage extends StatelessWidget {
   const StatsPage({super.key});
 
   Future<void> _reset(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('清空生涯数据？'),
-        content: const Text('对局数、胜率与积分将全部归零，此操作无法撤销。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('清空'),
-          ),
-        ],
-      ),
+    final ok = await showConfirmDialog(
+      context,
+      title: '清空生涯数据？',
+      message: '对局数、胜率与积分将全部归零，此操作无法撤销。',
+      confirmLabel: '清空',
     );
-    if (ok == true) await StatsService.instance.reset();
+    if (ok) await StatsService.instance.reset();
   }
 
   @override

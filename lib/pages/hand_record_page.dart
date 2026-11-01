@@ -8,6 +8,7 @@ import '../services/file_system_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 import '../widgets/playing_card_view.dart';
+import '../widgets/section_card.dart';
 
 /// 牌谱详情：结算摘要 + 逐步动作，可复制或导出为文本。
 class HandRecordPage extends StatelessWidget {
@@ -193,18 +194,30 @@ class _SummaryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          _InfoLine(label: '时间', value: formatDateTime(record.startedAt)),
-          _InfoLine(
+          InfoRow(
+            label: '时间',
+            value: formatDateTime(record.startedAt),
+            labelWidth: 56,
+            fontSize: 11.5,
+            padding: const EdgeInsets.only(top: 4),
+          ),
+          InfoRow(
             label: '底分',
             value: '${record.baseScore} 分 · 倍数 ×${record.multiplier}',
+            labelWidth: 56,
+            fontSize: 11.5,
+            padding: const EdgeInsets.only(top: 4),
           ),
-          _InfoLine(
+          InfoRow(
             label: '三家得分',
             value: [
               for (var i = 0; i < record.scores.length; i++)
                 '${_playerName(i)} '
                     '${record.scores[i] >= 0 ? '+' : ''}${record.scores[i]}',
             ].join(' / '),
+            labelWidth: 56,
+            fontSize: 11.5,
+            padding: const EdgeInsets.only(top: 4),
           ),
         ],
       ),
@@ -216,39 +229,6 @@ class _SummaryCard extends StatelessWidget {
       : '玩家$index';
 }
 
-class _InfoLine extends StatelessWidget {
-  const _InfoLine({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 56,
-            child: Text(
-              label,
-              style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(fontSize: 11.5, color: scheme.onSurface),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _BottomCardsCard extends StatelessWidget {
   const _BottomCardsCard({required this.cards});
 
@@ -256,32 +236,17 @@ class _BottomCardsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outline),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '底牌',
-            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: [
-              for (final card in cards) PlayingCardView(card: card, width: 28),
-            ],
-          ),
-        ],
-      ),
+    return SectionCard(
+      title: '底牌',
+      children: [
+        Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: [
+            for (final card in cards) PlayingCardView(card: card, width: 28),
+          ],
+        ),
+      ],
     );
   }
 }

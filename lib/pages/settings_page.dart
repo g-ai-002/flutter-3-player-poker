@@ -6,9 +6,9 @@ import '../models/app_settings.dart';
 import '../providers/settings_provider.dart';
 import '../services/file_system_service.dart';
 import '../services/log_service.dart';
-import '../theme/app_theme.dart';
 import '../utils/constants.dart';
 import '../utils/platform_info.dart';
+import '../widgets/section_card.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -66,7 +66,7 @@ class SettingsPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
         children: [
-          _Section(
+          SectionCard(
             title: '外观',
             children: [
               Row(
@@ -98,7 +98,7 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          _Section(
+          SectionCard(
             title: '对局',
             children: [
               Padding(
@@ -158,18 +158,18 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          _Section(
+          SectionCard(
             title: '诊断',
             children: [_LogPanel(onShowLogs: () => _showLogs(context))],
           ),
           const SizedBox(height: 12),
-          _Section(
+          SectionCard(
             title: '关于',
             children: [
-              const _InfoRow(label: '应用', value: AppConstants.appName),
-              const _InfoRow(label: '版本', value: 'v${AppConstants.version}'),
-              _InfoRow(label: '平台', value: platformLabel),
-              const _InfoRow(label: '运行方式', value: '本地单机 · 不联网'),
+              const InfoRow(label: '应用', value: AppConstants.appName),
+              const InfoRow(label: '版本', value: 'v${AppConstants.version}'),
+              InfoRow(label: '平台', value: platformLabel),
+              const InfoRow(label: '运行方式', value: '本地单机 · 不联网'),
             ],
           ),
           const SizedBox(height: 18),
@@ -251,67 +251,6 @@ class _LogPanel extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outline),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: kGold,
-              letterSpacing: 1.5,
-            ),
-          ),
-          const SizedBox(height: 6),
-          ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
-          ),
-          const Spacer(),
-          Text(value, style: TextStyle(fontSize: 13, color: scheme.onSurface)),
-        ],
-      ),
     );
   }
 }

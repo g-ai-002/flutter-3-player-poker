@@ -18,10 +18,20 @@ import 'stats_page.dart';
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
+  static final List<(IconData, String, WidgetBuilder)> _navItems = [
+    (Icons.menu_book_outlined, '玩法说明', (_) => const RulesPage()),
+    (Icons.insights_outlined, '数据统计', (_) => const StatsPage()),
+    (Icons.receipt_long_outlined, '牌谱', (_) => const HandHistoryPage()),
+    (Icons.tune, '设置', (_) => const SettingsPage()),
+  ];
+
+  void _open(BuildContext context, WidgetBuilder builder) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: builder));
+  }
+
   void _startGame(BuildContext context) {
     context.read<GameProvider>().newGame();
-    Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (_) => const GamePage()));
+    _open(context, (_) => const GamePage());
   }
 
   @override
@@ -79,53 +89,16 @@ class HomePage extends StatelessWidget {
                     const SizedBox(height: 18),
                     Row(
                       children: [
-                        Expanded(
-                          child: _NavTile(
-                            icon: Icons.menu_book_outlined,
-                            label: '玩法说明',
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const RulesPage(),
-                              ),
+                        for (final (index, item) in _navItems.indexed) ...[
+                          if (index > 0) const SizedBox(width: 8),
+                          Expanded(
+                            child: _NavTile(
+                              icon: item.$1,
+                              label: item.$2,
+                              onTap: () => _open(context, item.$3),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _NavTile(
-                            icon: Icons.insights_outlined,
-                            label: '数据统计',
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const StatsPage(),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _NavTile(
-                            icon: Icons.receipt_long_outlined,
-                            label: '牌谱',
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const HandHistoryPage(),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _NavTile(
-                            icon: Icons.tune,
-                            label: '设置',
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const SettingsPage(),
-                              ),
-                            ),
-                          ),
-                        ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 26),
@@ -155,6 +128,14 @@ class _HeroPanel extends StatelessWidget {
 
   final AiLevel level;
 
+  static const _fan = <(double, double, int, int, bool)>[
+    (-0.22, -44, 12, 1, false),
+    (-0.11, -22, 13, 0, false),
+    (0, 0, 17, 4, true),
+    (0.11, 22, 16, 4, false),
+    (0.22, 44, 14, 2, false),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -183,16 +164,13 @@ class _HeroPanel extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                _fanCard(angle: -0.22, offset: -44, card: _demoCard(12, 1)),
-                _fanCard(angle: -0.11, offset: -22, card: _demoCard(13, 0)),
-                _fanCard(
-                  angle: 0,
-                  offset: 0,
-                  card: _demoCard(17, 4),
-                  highlighted: true,
-                ),
-                _fanCard(angle: 0.11, offset: 22, card: _demoCard(16, 4)),
-                _fanCard(angle: 0.22, offset: 44, card: _demoCard(14, 2)),
+                for (final (angle, offset, rank, suit, highlighted) in _fan)
+                  _fanCard(
+                    angle: angle,
+                    offset: offset,
+                    card: _demoCard(rank, suit),
+                    highlighted: highlighted,
+                  ),
               ],
             ),
           ),

@@ -85,29 +85,23 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (outlined) {
-      return SizedBox(
-        height: 38,
-        child: OutlinedButton(
-          onPressed: onPressed,
-          style: tableGhostButtonStyle(
-            enabled: onPressed != null,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            fontSize: 12,
-            foreground: Colors.white,
-          ),
-          child: Text(label),
-        ),
-      );
-    }
-    return SizedBox(
-      height: 38,
-      child: FilledButton(
-        onPressed: onPressed,
-        style: goldButtonStyle(shape: const StadiumBorder()),
-        child: Text(label),
-      ),
-    );
+    final button = outlined
+        ? OutlinedButton(
+            onPressed: onPressed,
+            style: tableGhostButtonStyle(
+              enabled: onPressed != null,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              fontSize: 12,
+              foreground: Colors.white,
+            ),
+            child: Text(label),
+          )
+        : FilledButton(
+            onPressed: onPressed,
+            style: goldButtonStyle(shape: const StadiumBorder()),
+            child: Text(label),
+          );
+    return SizedBox(height: 38, child: button);
   }
 }
 
