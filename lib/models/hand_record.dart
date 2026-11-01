@@ -30,6 +30,7 @@ class HandAction {
     required this.type,
     required this.text,
     this.cards = const [],
+    this.multiplier = 1,
   });
 
   /// 玩家序号（0 为人类玩家）。
@@ -40,11 +41,15 @@ class HandAction {
   final String text;
   final List<PlayingCard> cards;
 
+  /// 动作发生后的本局倍数，复盘时逐步展示。
+  final int multiplier;
+
   Map<String, dynamic> toJson() => {
     'player': player,
     'type': type.name,
     'text': text,
     'cards': PlayingCard.listToJson(cards),
+    'multiplier': multiplier,
   };
 
   factory HandAction.fromJson(Map<String, dynamic> json) => HandAction(
@@ -52,6 +57,9 @@ class HandAction {
     type: HandActionType.fromName(json['type'] as String?),
     text: json['text'] is String ? json['text'] as String : '',
     cards: PlayingCard.listFromJson(json['cards']),
+    multiplier: json['multiplier'] is num
+        ? (json['multiplier'] as num).toInt()
+        : 1,
   );
 }
 
@@ -74,6 +82,7 @@ class HandRecord {
     required this.playerNames,
     required this.bottomCards,
     required this.actions,
+    this.initialHands = const [],
   });
 
   final String id;
@@ -93,6 +102,9 @@ class HandRecord {
   final List<String> playerNames;
   final List<PlayingCard> bottomCards;
   final List<HandAction> actions;
+
+  /// 发牌后的三家手牌，供复盘还原；旧牌谱可能为空。
+  final List<List<PlayingCard>> initialHands;
 
   bool get humanWon => humanIsLandlord ? landlordWon : !landlordWon;
 
@@ -123,6 +135,9 @@ class HandRecord {
     'playerNames': playerNames,
     'bottomCards': PlayingCard.listToJson(bottomCards),
     'actions': [for (final action in actions) action.toJson()],
+    'initialHands': [
+      for (final hand in initialHands) PlayingCard.listToJson(hand),
+    ],
   };
 
   factory HandRecord.fromJson(Map<String, dynamic> json) {
@@ -152,6 +167,12 @@ class HandRecord {
           ? [
               for (final item in json['actions'] as List)
                 if (item is Map<String, dynamic>) HandAction.fromJson(item),
+            ]
+          : const [],
+      initialHands: json['initialHands'] is List
+          ? [
+              for (final hand in json['initialHands'] as List)
+                PlayingCard.listFromJson(hand),
             ]
           : const [],
     );

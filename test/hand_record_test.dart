@@ -23,7 +23,7 @@ HandRecord buildRecord({DateTime? now}) {
     recorder: recorder,
   );
 
-  recorder.start();
+  recorder.start(engine);
   expect(engine.bid(0, 3), isTrue);
   announcer.bid(0);
   expect(engine.revealHand(0), isTrue);
@@ -73,7 +73,11 @@ void main() {
     expect(record.humanWon, isTrue);
     expect(record.actions.first.type, HandActionType.bid);
     expect(record.actions.first.text, '你 叫 3 分');
+    expect(record.actions.first.multiplier, 3);
     expect(record.actions[1].type, HandActionType.reveal);
+    expect(record.actions[1].multiplier, 6);
+    expect(record.initialHands, hasLength(3));
+    expect(record.initialHands.first, hasLength(17));
     final doubles = record.actions
         .where((action) => action.type == HandActionType.double)
         .toList();
@@ -98,6 +102,9 @@ void main() {
     expect(restored.scores, record.scores);
     expect(restored.actions.length, record.actions.length);
     expect(restored.bottomCards.length, record.bottomCards.length);
+    expect(restored.initialHands, hasLength(3));
+    expect(restored.initialHands.first, hasLength(17));
+    expect(restored.actions.first.multiplier, 3);
     expect(
       restored.actions.last.cards.single.id,
       record.actions.last.cards.single.id,
@@ -169,11 +176,13 @@ void main() {
         {'id': 2, 'rank': 3, 'suit': 9},
         {'id': 3, 'rank': 3, 'suit': 0},
       ],
+      'initialHands': 'broken',
       'actions': [
         {
           'player': 'a',
           'type': 'unknown',
           'text': 1,
+          'multiplier': 'x',
           'cards': [
             {'id': 4, 'rank': 3, 'suit': 0},
           ],
@@ -183,9 +192,11 @@ void main() {
 
     expect(record.id, '');
     expect(record.scores, [0, 2]);
+    expect(record.initialHands, isEmpty);
     expect(record.bottomCards.single.id, 3);
     expect(record.actions.single.type, HandActionType.play);
     expect(record.actions.single.text, '');
+    expect(record.actions.single.multiplier, 1);
     expect(record.actions.single.cards.single.id, 4);
   });
 }

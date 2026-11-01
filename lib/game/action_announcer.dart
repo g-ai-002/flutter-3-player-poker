@@ -60,6 +60,7 @@ class ActionAnnouncer {
       HandActionType.play,
       actionText,
       cards: combo.cards,
+      multiplier: engine.multiplier,
     );
     LogService.info(
       '$actionText '
@@ -73,7 +74,7 @@ class ActionAnnouncer {
     events.emit(TableEvent(type: type, player: playerId, text: text));
     if (text != null && text.isNotEmpty) {
       LogService.info(text);
-      recorder?.record(playerId, action, text);
+      recorder?.record(playerId, action, text, multiplier: engine.multiplier);
     }
   }
 }

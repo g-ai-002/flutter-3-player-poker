@@ -12,13 +12,20 @@ class HandRecorder {
   final DateTime Function() _clock;
   DateTime? _startedAt;
   final List<HandAction> _actions = [];
+  final List<List<PlayingCard>> _initialHands = [];
 
   List<HandAction> get actions => List.unmodifiable(_actions);
 
-  /// 新对局开始时清空上一局记录。
-  void start() {
+  /// 新对局开始时清空上一局记录；传入引擎时保存发牌后的三家手牌。
+  void start([DdzEngine? engine]) {
     _startedAt = _clock();
     _actions.clear();
+    _initialHands.clear();
+    if (engine != null) {
+      for (final player in engine.players) {
+        _initialHands.add(List.of(player.hand));
+      }
+    }
   }
 
   void record(
@@ -26,11 +33,18 @@ class HandRecorder {
     HandActionType type,
     String text, {
     List<PlayingCard> cards = const [],
+    int multiplier = 1,
   }) {
     if (text.isEmpty) return;
     _startedAt ??= _clock();
     _actions.add(
-      HandAction(player: player, type: type, text: text, cards: List.of(cards)),
+      HandAction(
+        player: player,
+        type: type,
+        text: text,
+        cards: List.of(cards),
+        multiplier: multiplier,
+      ),
     );
   }
 
@@ -55,6 +69,7 @@ class HandRecorder {
       playerNames: engine.players.map((player) => player.name).toList(),
       bottomCards: List.of(engine.bottomCards),
       actions: List.unmodifiable(_actions),
+      initialHands: [for (final hand in _initialHands) List.of(hand)],
     );
   }
 }

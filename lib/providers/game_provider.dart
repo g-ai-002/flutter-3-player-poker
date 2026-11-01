@@ -132,8 +132,8 @@ class GameProvider extends ChangeNotifier {
     _resetTurnState();
     _statsRecorded = false;
     _lastRecord = null;
-    recorder.start();
     engine.start();
+    recorder.start(engine);
     LogService.info(
       '新对局开始，叫分顺序: ${engine.currentPlayer}，AI 难度: '
       '${settings.aiLevel.label}',
