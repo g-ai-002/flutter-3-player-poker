@@ -144,6 +144,28 @@ void main() {
     tester.view.resetDevicePixelRatio();
   });
 
+  testWidgets('牌桌可打开记牌器面板', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 0);
+    addTearDown(game.dispose);
+    game.newGame();
+    takeLandlord(game);
+
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('记牌器 · 两家剩余'), findsNothing);
+
+    await tester.tap(find.byTooltip('记牌器'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('记牌器 · 两家剩余'), findsOneWidget);
+
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('记牌器 · 两家剩余'), findsNothing);
+  });
+
   testWidgets('出牌区在窄屏展示长牌型不溢出', (tester) async {
     final cards = [
       for (var i = 0; i < 20; i++)
