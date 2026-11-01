@@ -6,14 +6,17 @@ import '../services/storage_service.dart';
 class SettingsProvider extends ChangeNotifier {
   SettingsProvider(this._storage)
     : _darkMode = _storage.darkMode,
-      _aiSpeed = _storage.aiSpeed;
+      _aiSpeed = _storage.aiSpeed,
+      _aiLevel = _storage.aiLevel;
 
   final StorageService _storage;
   bool _darkMode;
   AiSpeed _aiSpeed;
+  AiLevel _aiLevel;
 
   bool get darkMode => _darkMode;
   AiSpeed get aiSpeed => _aiSpeed;
+  AiLevel get aiLevel => _aiLevel;
 
   void setDarkMode(bool value) {
     if (_darkMode == value) return;
@@ -27,5 +30,12 @@ class SettingsProvider extends ChangeNotifier {
     _aiSpeed = value;
     notifyListeners();
     _storage.setAiSpeed(value);
+  }
+
+  void setAiLevel(AiLevel value) {
+    if (_aiLevel == value) return;
+    _aiLevel = value;
+    notifyListeners();
+    _storage.setAiLevel(value);
   }
 }

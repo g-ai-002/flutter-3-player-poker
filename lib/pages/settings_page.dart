@@ -106,6 +106,39 @@ class SettingsPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const Text('AI 难度', style: TextStyle(fontSize: 14)),
+                    const SizedBox(height: 3),
+                    Text(
+                      settings.aiLevel.description,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final level in AiLevel.values)
+                          ChoiceChip(
+                            label: Text(level.label),
+                            selected: settings.aiLevel == level,
+                            onSelected: (_) => settings.setAiLevel(level),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                height: 18,
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     const Text('AI 思考速度', style: TextStyle(fontSize: 14)),
                     const SizedBox(height: 8),
                     Wrap(

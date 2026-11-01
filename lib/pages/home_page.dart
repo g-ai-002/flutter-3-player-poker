@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/app_settings.dart';
 import '../models/playing_card.dart';
 import '../providers/game_provider.dart';
 import '../providers/settings_provider.dart';
@@ -71,7 +72,7 @@ class HomePage extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    const _HeroPanel(),
+                    _HeroPanel(level: settings.aiLevel),
                     const SizedBox(height: 18),
                     _StartButton(onPressed: () => _startGame(context)),
                     const SizedBox(height: 18),
@@ -137,7 +138,9 @@ class HomePage extends StatelessWidget {
 }
 
 class _HeroPanel extends StatelessWidget {
-  const _HeroPanel();
+  const _HeroPanel({required this.level});
+
+  final AiLevel level;
 
   @override
   Widget build(BuildContext context) {
@@ -193,7 +196,7 @@ class _HeroPanel extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '经典三人玩法 · 两位 AI 对手',
+            '经典三人玩法 · ${level.label} AI 对手',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.55),
               fontSize: 11.5,

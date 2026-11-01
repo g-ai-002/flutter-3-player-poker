@@ -16,3 +16,22 @@ enum AiSpeed {
     return AiSpeed.normal;
   }
 }
+
+/// AI 棋力：入门保守、标准规则、高手记牌并评估拆牌。
+enum AiLevel {
+  easy('入门', '更早放弃压牌，适合熟悉牌型'),
+  normal('标准', '规则完整，跟牌克制、不拆炸弹'),
+  hard('高手', '记牌判断控制力，按最少手数拆分出牌');
+
+  const AiLevel(this.label, this.description);
+
+  final String label;
+  final String description;
+
+  static AiLevel fromName(String? name) {
+    for (final value in values) {
+      if (value.name == name) return value;
+    }
+    return AiLevel.normal;
+  }
+}

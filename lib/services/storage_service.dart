@@ -45,4 +45,11 @@ class StorageService {
   Future<void> setAiSpeed(AiSpeed value) => _write(
     (prefs) => prefs.setString(AppConstants.prefKeyAiSpeed, value.name),
   );
+
+  AiLevel get aiLevel =>
+      AiLevel.fromName(_p.getString(AppConstants.prefKeyAiLevel));
+
+  Future<void> setAiLevel(AiLevel value) => _write(
+    (prefs) => prefs.setString(AppConstants.prefKeyAiLevel, value.name),
+  );
 }
