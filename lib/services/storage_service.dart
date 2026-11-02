@@ -52,4 +52,14 @@ class StorageService {
   Future<void> setAiLevel(AiLevel value) => _write(
     (prefs) => prefs.setString(AppConstants.prefKeyAiLevel, value.name),
   );
+
+  bool get soundEnabled => _p.getBool(AppConstants.prefKeySound) ?? true;
+
+  Future<void> setSoundEnabled(bool value) =>
+      _write((prefs) => prefs.setBool(AppConstants.prefKeySound, value));
+
+  bool get musicEnabled => _p.getBool(AppConstants.prefKeyMusic) ?? true;
+
+  Future<void> setMusicEnabled(bool value) =>
+      _write((prefs) => prefs.setBool(AppConstants.prefKeyMusic, value));
 }

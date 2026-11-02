@@ -1,4 +1,5 @@
 import '../models/hand_record.dart';
+import '../services/audio_service.dart';
 import '../services/log_service.dart';
 import 'combo.dart';
 import 'game_engine.dart';
@@ -42,6 +43,7 @@ class ActionAnnouncer {
         cards: combo.cards,
       ),
     );
+    AudioService.instance.play(combo.isBomb ? AudioCue.bomb : AudioCue.play);
     if (combo.isBomb) {
       events.emit(
         TableEvent(
@@ -72,6 +74,13 @@ class ActionAnnouncer {
   void _emitWithText(TableEventType type, int playerId, HandActionType action) {
     final text = engine.lastMoveText;
     events.emit(TableEvent(type: type, player: playerId, text: text));
+    AudioService.instance.play(switch (type) {
+      TableEventType.bid => AudioCue.bid,
+      TableEventType.double => AudioCue.double,
+      TableEventType.reveal => AudioCue.reveal,
+      TableEventType.pass => AudioCue.pass,
+      _ => AudioCue.play,
+    });
     if (text != null && text.isNotEmpty) {
       LogService.info(text);
       recorder?.record(playerId, action, text, multiplier: engine.multiplier);

@@ -99,6 +99,28 @@ class SettingsPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           SectionCard(
+            title: '声音',
+            children: [
+              _SwitchRow(
+                label: '音效',
+                description: '发牌、出牌、炸弹与结算提示音，全部由程序合成',
+                value: settings.soundEnabled,
+                onChanged: settings.setSoundEnabled,
+              ),
+              Divider(
+                height: 18,
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+              _SwitchRow(
+                label: '背景音乐',
+                description: '对局中循环播放轻柔的本地合成旋律',
+                value: settings.musicEnabled,
+                onChanged: settings.setMusicEnabled,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SectionCard(
             title: '对局',
             children: [
               Padding(
@@ -251,6 +273,45 @@ class _LogPanel extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _SwitchRow extends StatelessWidget {
+  const _SwitchRow({
+    required this.label,
+    required this.description,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String description;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontSize: 14)),
+              const SizedBox(height: 3),
+              Text(
+                description,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Switch.adaptive(value: value, onChanged: onChanged),
+      ],
     );
   }
 }
