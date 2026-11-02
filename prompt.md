@@ -31,7 +31,7 @@
 
 - **创建或更新项目规划**：根据prompt.md文件中的要求, 在plan.md文件中创建或者更新项目短期、中期、长期功能规划, 确保可以长期迭代演进。
 - **确定新版本需求范围原则**：按照以下约束条件优先级顺序规划新版本需求范围：
-    - 如果有未关闭的GitHub Issues或Gitea Issues, 则必须立即规划一个 **PATCH**新版本修复问题
+    - 如果有未关闭或者重新打开的GitHub Issues或Gitea Issues, 则必须立即规划一个 **PATCH**新版本修复问题
     - 如果GitHub Actions或Gitea Actions最新workflow有报错, 则必须立即规划一个 **PATCH**新版本修复报错
     - 如果当前 **MINOR**版本在plan.md文件中还没有一个已完成的用于重构优化的 **PATCH**版本, 则必须立即规划一个 **PATCH**
       新版本重构优化存量代码
