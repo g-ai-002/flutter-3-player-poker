@@ -1,9 +1,6 @@
 name: 🚀 构建与发布
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 run-name: 🃏 构建 ${{ github.ref_name }}
