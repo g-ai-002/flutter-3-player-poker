@@ -20,35 +20,98 @@ class GameTopBar extends StatelessWidget {
   final VoidCallback onRestart;
   final bool compact;
 
-  /// 记牌器：底部面板随对局实时刷新，不占用牌桌布局。
+  static const TextStyle _menuText = TextStyle(
+    color: Colors.white,
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// 记牌器：顶部浮层展示两家剩余的牌，不遮挡手牌与操作条。
   Future<void> _showCounter(BuildContext context, GameProvider provider) {
-    return showModalBottomSheet<void>(
+    return showGeneralDialog<void>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: const Color(0xFF12301F),
-      builder: (context) => SafeArea(
+      barrierDismissible: true,
+      barrierLabel: '关闭记牌器',
+      barrierColor: Colors.black.withValues(alpha: 0.28),
+      transitionDuration: const Duration(milliseconds: 160),
+      transitionBuilder: (context, animation, _, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, -0.08),
+              end: Offset.zero,
+            ).animate(curved),
+            child: child,
+          ),
+        );
+      },
+      pageBuilder: (context, _, _) => Align(
+        alignment: Alignment.topCenter,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '记牌器 · 两家剩余',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
+          padding: EdgeInsets.only(
+            top: MediaQuery.paddingOf(context).top + 56,
+            left: 14,
+            right: 14,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF12301F),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: kGold.withValues(alpha: 0.32)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            '记牌器 · 两家剩余',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: '关闭记牌器',
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close, size: 18),
+                          color: Colors.white.withValues(alpha: 0.7),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ListenableBuilder(
+                      listenable: provider,
+                      builder: (context, _) => CardCounterPanel(
+                        counts: CardCounter.remaining(provider.engine),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 10),
-              ListenableBuilder(
-                listenable: provider,
-                builder: (context, _) => CardCounterPanel(
-                  counts: CardCounter.remaining(provider.engine),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -142,9 +205,18 @@ class GameTopBar extends StatelessWidget {
               if (value == 'leave') onBack();
             },
             itemBuilder: (context) => const [
-              PopupMenuItem(value: 'restart', child: Text('重新开始')),
-              PopupMenuItem(value: 'rules', child: Text('玩法说明')),
-              PopupMenuItem(value: 'leave', child: Text('返回主页')),
+              PopupMenuItem(
+                value: 'restart',
+                child: Text('重新开始', style: _menuText),
+              ),
+              PopupMenuItem(
+                value: 'rules',
+                child: Text('玩法说明', style: _menuText),
+              ),
+              PopupMenuItem(
+                value: 'leave',
+                child: Text('返回主页', style: _menuText),
+              ),
             ],
           ),
         ],

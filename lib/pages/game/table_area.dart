@@ -7,26 +7,66 @@ import '../../widgets/played_cards_view.dart';
 import '../../widgets/playing_card_view.dart';
 import '../../widgets/seat_panel.dart';
 
-/// 玩家最近一手的出牌区。
-Widget _pile(PlayerState player, double maxWidth) {
-  return PlayedCardsView(
-    cards: player.lastPlay,
-    combo: player.lastCombo,
-    passed: player.lastPassed,
-    maxWidth: maxWidth,
-  );
+/// 牌桌顶部的底牌条：开局背面朝上，地主确定后亮出。
+class BottomCardsBar extends StatelessWidget {
+  const BottomCardsBar({super.key, required this.engine, this.compact = false});
+
+  final DdzEngine engine;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final revealed = engine.landlord != null;
+    final width = compact ? 27.0 : 31.0;
+    return SizedBox(
+      height: compact ? 42 : 50,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            '底牌',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.45),
+              fontSize: 10,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(width: 8),
+          for (final card in engine.bottomCards)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: PlayingCardView(
+                card: card,
+                width: width,
+                faceDown: !revealed,
+              ),
+            ),
+          if (engine.bottomCards.isEmpty)
+            Text(
+              '待发牌',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.35),
+                fontSize: 10,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
-/// 牌桌中央区域：横屏时两侧座位并排，竖屏时座位在上、出牌区居中。
+/// 牌桌中央区域：三家最近一手牌集中在中央，两侧只保留座位信息。
 class GameTableArea extends StatelessWidget {
   const GameTableArea({
     super.key,
     required this.provider,
     required this.landscape,
+    this.compact = false,
   });
 
   final GameProvider provider;
   final bool landscape;
+  final bool compact;
 
   /// 明牌手牌浮层：地主亮牌后，农民可随时查看。
   void _showRevealedHand(BuildContext context, PlayerState player) {
@@ -70,6 +110,7 @@ class GameTableArea extends StatelessWidget {
       thinking: provider.thinkingPlayer == player.id,
       phase: provider.engine.phase,
       revealed: revealed,
+      countdown: provider.turnSecondsLeft,
       onTap: revealed ? () => _showRevealedHand(context, player) : null,
     );
   }
@@ -83,32 +124,32 @@ class GameTableArea extends StatelessWidget {
       return Row(
         children: [
           Expanded(
-            flex: 3,
-            child: _SideColumn(
-              player: left,
-              isLeft: true,
+            flex: 2,
+            child: _SeatColumn(
               seat: _seatPanel(context, provider, left),
+              compact: compact,
             ),
           ),
           Expanded(
-            flex: 4,
+            flex: 6,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                BottomCards(engine: engine),
-                const SizedBox(height: 10),
+                Expanded(
+                  child: RepaintBoundary(
+                    child: PlayField(provider: provider, landscape: true),
+                  ),
+                ),
                 StatusInfo(provider: provider),
-                const SizedBox(height: 8),
-                _pile(engine.players[0], 230),
+                const SizedBox(height: 2),
               ],
             ),
           ),
           Expanded(
-            flex: 3,
-            child: _SideColumn(
-              player: right,
-              isLeft: false,
+            flex: 2,
+            child: _SeatColumn(
               seat: _seatPanel(context, provider, right),
+              compact: compact,
             ),
           ),
         ],
@@ -117,7 +158,7 @@ class GameTableArea extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
-          height: 112,
+          height: compact ? 104 : 112,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -125,7 +166,7 @@ class GameTableArea extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 10, top: 2),
                 child: _seatPanel(context, provider, left),
               ),
-              Expanded(child: BottomCards(engine: engine)),
+              const Spacer(),
               Padding(
                 padding: const EdgeInsets.only(right: 10, top: 2),
                 child: _seatPanel(context, provider, right),
@@ -134,56 +175,143 @@ class GameTableArea extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: Row(
-            children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 10),
-                    child: _pile(left, 170),
-                  ),
-                ),
-              ),
-              Flexible(
-                flex: 2,
-                child: Center(child: StatusInfo(provider: provider)),
-              ),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: _pile(right, 170),
-                  ),
-                ),
-              ),
-            ],
+          child: RepaintBoundary(
+            child: PlayField(provider: provider, landscape: false),
           ),
         ),
+        StatusInfo(provider: provider),
+        const SizedBox(height: 2),
       ],
     );
   }
 }
 
-class _SideColumn extends StatelessWidget {
-  const _SideColumn({
-    required this.player,
-    required this.isLeft,
-    required this.seat,
-  });
+class _SeatColumn extends StatelessWidget {
+  const _SeatColumn({required this.seat, required this.compact});
 
-  final PlayerState player;
-  final bool isLeft;
   final SeatPanel seat;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(left: isLeft ? 10 : 4, right: isLeft ? 4 : 10),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: compact ? 2 : 8),
+            child: seat,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 三家出牌区：中间为玩家，两侧为两名 AI，牌面比旧版更大。
+class PlayField extends StatelessWidget {
+  const PlayField({super.key, required this.provider, required this.landscape});
+
+  final GameProvider provider;
+  final bool landscape;
+
+  @override
+  Widget build(BuildContext context) {
+    final engine = provider.engine;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columnWidth = constraints.maxWidth / 3;
+        final cardWidth = landscape ? 40.0 : 33.0;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            for (final id in const [2, 0, 1])
+              Expanded(
+                child: _PileColumn(
+                  player: engine.players[id],
+                  maxWidth: columnWidth - 10,
+                  cardWidth: cardWidth,
+                  highlight: engine.lastPlayer == id,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PileColumn extends StatelessWidget {
+  const _PileColumn({
+    required this.player,
+    required this.maxWidth,
+    required this.cardWidth,
+    required this.highlight,
+  });
+
+  final PlayerState player;
+  final double maxWidth;
+  final double cardWidth;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [seat, const SizedBox(height: 10), _pile(player, 160)],
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  player.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: highlight
+                        ? kGoldSoft
+                        : Colors.white.withValues(alpha: 0.62),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (player.isLandlord) ...[
+                const SizedBox(width: 3),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: kGold.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    '地主',
+                    style: TextStyle(
+                      color: Color(0xFF3A2606),
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 3),
+          PlayedCardsView(
+            cards: player.lastPlay,
+            combo: player.lastCombo,
+            passed: player.lastPassed,
+            maxWidth: maxWidth,
+            cardWidth: cardWidth,
+          ),
+        ],
       ),
     );
   }
@@ -197,7 +325,7 @@ class TurnChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(20),
@@ -216,7 +344,7 @@ class TurnChip extends StatelessWidget {
   }
 }
 
-/// 横屏中央状态：轮次提示 + 最近一手动作。
+/// 中央状态：轮次提示 + 最近一手动作。
 class StatusInfo extends StatelessWidget {
   const StatusInfo({super.key, required this.provider});
 
@@ -233,7 +361,7 @@ class StatusInfo extends StatelessWidget {
       children: [
         TurnChip(text: provider.turnHint),
         if (aiRevealed) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             '地主已明牌 · 点击其座位查看手牌',
             textAlign: TextAlign.center,
@@ -244,7 +372,7 @@ class StatusInfo extends StatelessWidget {
           ),
         ],
         if (action != null && provider.phase != GamePhase.finished) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             action,
             maxLines: 1,
@@ -257,69 +385,6 @@ class StatusInfo extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-/// 三张底牌：地主确定前背面朝上。
-class BottomCards extends StatelessWidget {
-  const BottomCards({super.key, required this.engine});
-
-  final DdzEngine engine;
-
-  @override
-  Widget build(BuildContext context) {
-    final revealed = engine.landlord != null;
-    return Column(
-      children: [
-        const SizedBox(height: 2),
-        Text(
-          '底牌',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.45),
-            fontSize: 10,
-            letterSpacing: 2,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final card in engine.bottomCards)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: PlayingCardView(
-                  card: card,
-                  width: 30,
-                  faceDown: !revealed,
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-/// 竖屏时人类玩家在牌桌上方的出牌区。
-class HumanPlayRow extends StatelessWidget {
-  const HumanPlayRow({super.key, required this.provider});
-
-  final GameProvider provider;
-
-  @override
-  Widget build(BuildContext context) {
-    final human = provider.engine.players[0];
-    return SizedBox(
-      height: 58,
-      child: Center(
-        child: PlayedCardsView(
-          cards: human.lastPlay,
-          combo: human.lastCombo,
-          passed: human.lastPassed,
-          maxWidth: 220,
-        ),
-      ),
     );
   }
 }

@@ -96,7 +96,13 @@ class RulesPage extends StatelessWidget {
         const SizedBox(height: 6),
         _flowRow(scheme, '明牌', '地主可在自己的加倍回合亮出手牌，本局倍数再 ×2，对手能看到其剩余手牌。'),
         const SizedBox(height: 6),
-        _flowRow(scheme, '记牌', '顶栏的眼睛按钮打开记牌器，实时查看两家剩余的牌；地主明牌后其手牌不再计入剩余。'),
+        _flowRow(scheme, '记牌', '顶栏的眼睛按钮在上方弹出记牌器，实时查看两家剩余的牌；地主明牌后其手牌不再计入剩余。'),
+        const SizedBox(height: 6),
+        _flowRow(scheme, '选牌', '单击牌面可切换选中，横向拖动可连续选中或取消一片手牌，适合快速挑顺子与连对。'),
+        const SizedBox(height: 6),
+        _flowRow(scheme, '倒计时', '每次出牌有 20 秒，超时自动不出；轮到自己领出时超时会自动打出最小单张。'),
+        const SizedBox(height: 6),
+        _flowRow(scheme, '声音', '音效与背景音乐全部由程序实时合成，可在设置页分别关闭。'),
       ],
     );
   }

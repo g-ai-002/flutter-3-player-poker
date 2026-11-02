@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../providers/game_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/hand_view.dart';
+import '../../widgets/turn_countdown.dart';
 
 /// 底部操作条：选中牌型说明、提示 / 不出 / 出牌。
 class GameActionBar extends StatelessWidget {
@@ -38,14 +39,29 @@ class GameActionBar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  provider.humanIsLandlord
-                      ? '地主 · 剩余 ${provider.humanHand.length} 张'
-                      : '农民 · 剩余 ${provider.humanHand.length} 张',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.4),
-                    fontSize: 10,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        provider.humanIsLandlord
+                            ? '地主 · ${provider.humanHand.length} 张'
+                            : '农民 · ${provider.humanHand.length} 张',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                    if (provider.isHumanTurn) ...[
+                      const SizedBox(width: 6),
+                      TurnCountdown(
+                        seconds: provider.turnSecondsLeft,
+                        compact: true,
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -120,12 +136,15 @@ class HumanHandView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.fromLTRB(12, 2, 12, compact ? 4 : 8),
-      child: HandView(
-        cards: provider.humanHand,
-        selectedIds: provider.selectedIds,
-        enabled: provider.isHumanTurn,
-        onTap: provider.toggleCard,
-        maxCardWidth: compact ? 44 : null,
+      child: RepaintBoundary(
+        child: HandView(
+          cards: provider.humanHand,
+          selectedIds: provider.selectedIds,
+          enabled: provider.isHumanTurn,
+          onTap: provider.toggleCard,
+          onSelectionChanged: provider.setSelection,
+          maxCardWidth: compact ? 44 : null,
+        ),
       ),
     );
   }

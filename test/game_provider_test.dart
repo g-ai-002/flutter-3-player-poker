@@ -203,4 +203,39 @@ void main() {
     );
     expect(HandHistoryService.instance.records.single.id, record.id);
   });
+
+  test('超时领出自动打最小单张', () async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+    addTearDown(game.dispose);
+
+    game.newGame();
+    takeLandlord(game);
+    expect(game.isHumanTurn, isTrue);
+
+    final before = game.humanHand.length;
+    game.handleTurnTimeout();
+    expect(game.humanHand.length, before - 1);
+    expect(game.feedback, contains('超时'));
+    expect(game.selectedIds, isEmpty);
+    game.stop();
+  });
+
+  test('跟牌超时自动不出，并把回合交给下家', () async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+    addTearDown(game.dispose);
+
+    game.newGame();
+    takeLandlord(game);
+    game.engine.currentPlayer = 0;
+    game.engine.lastCombo = detectCombo(handOf('3'));
+    game.engine.lastPlayer = 1;
+
+    game.handleTurnTimeout();
+    expect(game.engine.players[0].lastPassed, isTrue);
+    expect(game.engine.currentPlayer, 1);
+    expect(game.feedback, contains('自动不出'));
+    game.stop();
+  });
 }

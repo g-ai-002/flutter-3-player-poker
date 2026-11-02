@@ -1,8 +1,10 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flame/text.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/playing_card.dart';
@@ -18,7 +20,6 @@ class DdzTableGame extends FlameGame {
 
   /// 进入牌桌时补一次发牌动画：首局的发牌事件在牌桌订阅之前就已发出。
   final bool introDeal;
-  late final DustLayer _dust;
 
   @override
   Color backgroundColor() => const Color(0xFF081A11);
@@ -26,8 +27,8 @@ class DdzTableGame extends FlameGame {
   @override
   Future<void> onLoad() async {
     add(FeltBackground());
-    _dust = DustLayer();
-    add(_dust);
+    // 浮尘只保留在移动/桌面端，Web 端优先保证动画流畅度。
+    if (!kIsWeb) add(DustLayer());
     bus.subscribe(_onEvent);
     if (introDeal) _playDeal();
   }
@@ -59,7 +60,7 @@ class DdzTableGame extends FlameGame {
       case TableEventType.deal:
         _playDeal();
       case TableEventType.play:
-        final cards = event.cards.take(8).toList();
+        final cards = event.cards.take(kIsWeb ? 6 : 8).toList();
         for (var i = 0; i < cards.length; i++) {
           add(
             CardFlight(
@@ -90,8 +91,9 @@ class DdzTableGame extends FlameGame {
   }
 
   void _playDeal() {
+    const perPlayer = kIsWeb ? 3 : 5;
     for (var player = 0; player < 3; player++) {
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0; i < perPlayer; i++) {
         add(
           CardFlight(
             card: null,
@@ -116,50 +118,59 @@ class FeltBackground extends Component with HasGameReference<DdzTableGame> {
   );
 
   Vector2? _cachedSize;
-  Paint? _felt;
-  Paint? _rim;
-  Paint? _rimInner;
-  Rect? _oval;
+  ui.Picture? _picture;
 
-  /// 绒面渐变与描边按尺寸缓存，避免每帧重新创建着色器。
+  /// 绒面、金边与水印合成为一张图片缓存，每帧只做一次 drawPicture。
   void _rebuild(Vector2 size) {
     final rect = Offset.zero & Size(size.x, size.y);
-    _felt = Paint()
+    final felt = Paint()
       ..shader = const RadialGradient(
         center: Alignment(0, -0.15),
         radius: 0.95,
         colors: [Color(0xFF1B6B46), Color(0xFF0F4229), Color(0xFF071A11)],
         stops: [0, 0.58, 1],
       ).createShader(rect);
-    _oval = Rect.fromCenter(
+    final oval = Rect.fromCenter(
       center: Offset(size.x * 0.5, size.y * 0.48),
       width: size.x * 0.93,
       height: size.y * 0.92,
     );
-    _rim = Paint()
+    final rim = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..color = const Color(0xFFD8B56A).withValues(alpha: 0.22);
-    _rimInner = Paint()
+    final rimInner = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.8
       ..color = const Color(0xFFD8B56A).withValues(alpha: 0.12);
-    _cachedSize = size;
-  }
 
-  @override
-  void render(Canvas canvas) {
-    final size = game.size;
-    if (_cachedSize != size || _felt == null) _rebuild(size);
-    canvas.drawRect(Offset.zero & Size(size.x, size.y), _felt!);
-    canvas.drawOval(_oval!, _rim!);
-    canvas.drawOval(_oval!.deflate(10), _rimInner!);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawRect(rect, felt);
+    canvas.drawOval(oval, rim);
+    canvas.drawOval(oval.deflate(10), rimInner);
     _watermark.render(
       canvas,
       '斗',
       Vector2(size.x * 0.5, size.y * 0.47),
       anchor: Anchor.center,
     );
+    _picture = recorder.endRecording();
+    _cachedSize = size;
+  }
+
+  @override
+  void onRemove() {
+    _picture?.dispose();
+    _picture = null;
+    super.onRemove();
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final size = game.size;
+    if (_cachedSize != size || _picture == null) _rebuild(size);
+    canvas.drawPicture(_picture!);
   }
 }
 

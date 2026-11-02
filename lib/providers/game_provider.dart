@@ -12,6 +12,7 @@ import '../game/table_events.dart';
 import '../game/turn_driver.dart';
 import '../models/hand_record.dart';
 import '../models/playing_card.dart';
+import '../services/audio_service.dart';
 import '../services/hand_history_service.dart';
 import '../services/log_service.dart';
 import '../services/stats_service.dart';
@@ -22,8 +23,8 @@ import 'settings_provider.dart';
 /// 具体职责拆分：
 /// - [DdzEngine]：发牌、牌型、轮次与计分等纯规则；
 /// - [TurnDriver]：AI 回合的定时调度与异常兜底；
-/// - [ActionAnnouncer]：动作事件与日志；
-/// - 本类：面向界面的选牌状态、人类操作入口与轻提示。
+/// - [ActionAnnouncer]：动作事件、音效与日志；
+/// - 本类：面向界面的选牌状态、出牌倒计时、人类操作入口与轻提示。
 class GameProvider extends ChangeNotifier {
   GameProvider({
     required this.settings,
@@ -52,6 +53,9 @@ class GameProvider extends ChangeNotifier {
     );
   }
 
+  /// 每次出牌回合的思考上限；超时自动不出（领出时自动出最小单张）。
+  static const int turnLimitSeconds = 20;
+
   final SettingsProvider settings;
   final DdzEngine engine;
   final AiPlayer ai;
@@ -67,9 +71,12 @@ class GameProvider extends ChangeNotifier {
   final int? aiDelayOverride;
 
   final Set<int> _selectedIds = {};
+  final ValueNotifier<int> _turnSeconds = ValueNotifier<int>(0);
   Timer? _feedbackTimer;
+  int _clockSerial = -1;
   String? _feedback;
   bool _statsRecorded = false;
+  bool _audioReady = false;
   HandRecord? _lastRecord;
 
   List<PlayingCard> get humanHand => engine.players[0].hand;
@@ -81,6 +88,9 @@ class GameProvider extends ChangeNotifier {
   bool get isHumanTurn => engine.isHumanTurn;
   bool get canPass => engine.isHumanTurn && engine.lastCombo != null;
   GameResult? get result => engine.result;
+
+  /// 当前回合剩余秒数；座位与操作条只监听这个小对象，避免整页每秒重建。
+  ValueListenable<int> get turnSecondsLeft => _turnSeconds;
 
   /// 本局牌谱；对局结束后生成，供结算页查看。
   HandRecord? get lastRecord => _lastRecord;
@@ -134,12 +144,19 @@ class GameProvider extends ChangeNotifier {
     _lastRecord = null;
     engine.start();
     recorder.start(engine);
+    if (!_audioReady) {
+      _audioReady = true;
+      AudioService.instance.prewarm();
+    }
+    AudioService.instance
+      ..startBgm()
+      ..play(AudioCue.deal);
     LogService.info(
       '新对局开始，叫分顺序: ${engine.currentPlayer}，AI 难度: '
       '${settings.aiLevel.label}',
     );
     events.emit(const TableEvent(type: TableEventType.deal));
-    notifyListeners();
+    _notify();
     driver.schedule();
   }
 
@@ -150,7 +167,8 @@ class GameProvider extends ChangeNotifier {
         engine.phase == GamePhase.playing) {
       engine.phase = GamePhase.idle;
     }
-    notifyListeners();
+    AudioService.instance.stopBgm();
+    _notify();
   }
 
   void _resetTurnState() {
@@ -158,6 +176,8 @@ class GameProvider extends ChangeNotifier {
     _feedbackTimer?.cancel();
     _feedback = null;
     _selectedIds.clear();
+    _clockSerial = -1;
+    if (_turnSeconds.value != 0) _turnSeconds.value = 0;
   }
 
   /// 叫分：0 不叫，1-3 分。
@@ -191,6 +211,17 @@ class GameProvider extends ChangeNotifier {
     if (!_selectedIds.remove(id)) {
       _selectedIds.add(id);
     }
+    notifyListeners();
+  }
+
+  /// 连续选牌的最终结果：以拖动起点的手牌状态为基准整体替换。
+  void setSelection(Iterable<int> ids) {
+    if (!engine.isHumanTurn) return;
+    final next = ids.toSet();
+    if (setEquals(next, _selectedIds)) return;
+    _selectedIds
+      ..clear()
+      ..addAll(next);
     notifyListeners();
   }
 
@@ -238,10 +269,58 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 状态变化的统一出口：顺带在终局时写一次生涯统计。
+  /// 状态变化的统一出口：同步回合倒计时，终局时写一次生涯统计。
   void _notify() {
+    _resetTurnDisplay();
     _recordStats();
     notifyListeners();
+  }
+
+  /// 新回合开始时把秒数复位；真正每秒递减由牌桌的 [TurnClock] 驱动，
+  /// 这样纯逻辑测试不会残留定时器。
+  void _resetTurnDisplay() {
+    if (engine.phase != GamePhase.playing) {
+      _clockSerial = -1;
+      if (_turnSeconds.value != 0) _turnSeconds.value = 0;
+      return;
+    }
+    if (_clockSerial == engine.turnSerial) return;
+    _clockSerial = engine.turnSerial;
+    _turnSeconds.value = turnLimitSeconds;
+  }
+
+  /// 由牌桌计时器每秒调用一次。
+  void tickTurn() {
+    if (engine.phase != GamePhase.playing) return;
+    if (_turnSeconds.value > 0) _turnSeconds.value -= 1;
+  }
+
+  /// 计时器挂载时兜底复位，避免外部直接改引擎后秒数为 0。
+  void resetTurnSeconds() {
+    if (engine.phase == GamePhase.playing) {
+      _turnSeconds.value = turnLimitSeconds;
+    }
+  }
+
+  /// 人类超时：能不出就不出；领出时按规则必须出牌，自动打出最小单张。
+  void handleTurnTimeout() {
+    if (!engine.isHumanTurn) return;
+    _selectedIds.clear();
+    if (engine.lastCombo != null) {
+      final error = engine.pass(0);
+      if (error == PlayError.none) {
+        announcer.pass(0);
+        _showFeedback('出牌超时，已自动不出');
+      }
+    } else if (humanHand.isNotEmpty) {
+      final outcome = engine.play(0, [humanHand.last]);
+      if (outcome.ok) {
+        announcer.play(0, outcome.combo, text: outcome.text);
+        _showFeedback('出牌超时，已自动出最小单张');
+      }
+    }
+    _notify();
+    driver.schedule();
   }
 
   void _showFeedback(String message) {
@@ -258,6 +337,11 @@ class GameProvider extends ChangeNotifier {
     final gameResult = engine.result;
     if (gameResult == null || _statsRecorded) return;
     _statsRecorded = true;
+    AudioService.instance.play(
+      gameResult.humanWon(engine.players[0].isLandlord)
+          ? AudioCue.win
+          : AudioCue.lose,
+    );
     unawaited(
       StatsService.instance.record(
         gameResult,
@@ -274,6 +358,7 @@ class GameProvider extends ChangeNotifier {
   void dispose() {
     driver.dispose();
     _feedbackTimer?.cancel();
+    _turnSeconds.dispose();
     events.dispose();
     super.dispose();
   }

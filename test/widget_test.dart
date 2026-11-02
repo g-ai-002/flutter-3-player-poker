@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_3_player_poker/models/hand_record.dart';
 import 'package:flutter_3_player_poker/models/playing_card.dart';
 import 'package:flutter_3_player_poker/pages/game/game_overlays.dart';
+import 'package:flutter_3_player_poker/pages/game/table_area.dart';
 import 'package:flutter_3_player_poker/pages/game_page.dart';
 import 'package:flutter_3_player_poker/pages/hand_history_page.dart';
 import 'package:flutter_3_player_poker/pages/hand_record_page.dart';
@@ -160,10 +162,176 @@ void main() {
     await tester.tap(find.byTooltip('记牌器'));
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('记牌器 · 两家剩余'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('记牌器 · 两家剩余')).dy,
+      lessThan(120),
+      reason: '记牌器应浮在牌桌上方而不是底部弹出',
+    );
+    expect(find.byType(BottomSheet), findsNothing);
 
     await tester.tapAt(const Offset(8, 8));
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('记牌器 · 两家剩余'), findsNothing);
+  });
+
+  testWidgets('底部牌桌上显示底牌条、中央大牌与回合倒计时', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+    addTearDown(game.dispose);
+    game.newGame();
+    takeLandlord(game);
+
+    tester.view.physicalSize = const Size(780, 360);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.byType(BottomCardsBar), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byType(BottomCardsBar)).dy,
+      lessThan(100),
+      reason: '底牌位于界面顶部',
+    );
+    final piles = tester.widgetList<PlayedCardsView>(
+      find.byType(PlayedCardsView),
+    );
+    expect(piles.length, 3);
+    expect(piles.every((pile) => pile.cardWidth >= 40), isTrue);
+    expect(find.byIcon(Icons.timer_outlined), findsWidgets);
+
+    game.stop();
+    await tester.pump();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('手牌支持拖动连续多选', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+    addTearDown(game.dispose);
+    game.newGame();
+    takeLandlord(game);
+
+    tester.view.physicalSize = const Size(780, 360);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final first = game.humanHand.first;
+    final start = tester.getCenter(
+      find.byKey(ValueKey('hand-card-${first.id}')),
+    );
+    await tester.dragFrom(start, const Offset(80, 0));
+    await tester.pump();
+
+    expect(game.selectedIds.length, greaterThanOrEqualTo(2));
+
+    game.stop();
+    await tester.pump();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('出牌倒计时归零后自动不出或领出', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+    addTearDown(game.dispose);
+    game.newGame();
+    takeLandlord(game);
+
+    tester.view.physicalSize = const Size(780, 360);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('20s'), findsWidgets);
+
+    final before = game.humanHand.length;
+    await tester.pump(const Duration(seconds: 21));
+    expect(game.humanHand.length, before - 1);
+    expect(game.feedback, contains('超时'));
+
+    await tester.pump(const Duration(seconds: 3));
+    game.stop();
+    await tester.pump();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('手机竖屏进入牌桌会锁定全屏横屏', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+    addTearDown(game.dispose);
+    game.newGame();
+    takeLandlord(game);
+
+    final calls = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method.startsWith('SystemChrome.')) calls.add(call);
+        return null;
+      },
+    );
+
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump();
+
+    final orientation = calls.where(
+      (call) => call.method == 'SystemChrome.setPreferredOrientations',
+    );
+    expect(orientation, isNotEmpty);
+    expect(
+      orientation.last.arguments,
+      contains('DeviceOrientation.landscapeLeft'),
+    );
+    expect(
+      calls.any(
+        (call) =>
+            call.method == 'SystemChrome.setEnabledSystemUIMode' &&
+            call.arguments == 'SystemUiMode.immersiveSticky',
+      ),
+      isTrue,
+    );
+
+    game.stop();
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      null,
+    );
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('右上角菜单文案使用白色，深色底上清晰可见', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+    addTearDown(game.dispose);
+    game.newGame();
+    takeLandlord(game);
+
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.byIcon(Icons.more_horiz));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final item = tester.widget<Text>(find.text('重新开始'));
+    expect(item.style?.color, Colors.white);
+
+    await tester.tapAt(const Offset(4, 4));
+    await tester.pump(const Duration(milliseconds: 400));
+    game.stop();
   });
 
   testWidgets('出牌区在窄屏展示长牌型不溢出', (tester) async {
@@ -275,6 +443,8 @@ void main() {
     await tester.pump();
 
     expect(find.text('深色模式'), findsOneWidget);
+    expect(find.text('音效'), findsOneWidget);
+    expect(find.text('背景音乐'), findsOneWidget);
     expect(find.text('AI 难度'), findsOneWidget);
     expect(find.text('入门'), findsOneWidget);
     expect(find.text('高手'), findsOneWidget);
@@ -287,9 +457,13 @@ void main() {
     await tester.pump();
     expect(settings.aiLevel, AiLevel.hard);
 
-    await tester.tap(find.byType(Switch));
+    await tester.tap(find.byType(Switch).first);
     await tester.pump();
     expect(settings.darkMode, isTrue);
+
+    await tester.tap(find.byType(Switch).at(1));
+    await tester.pump();
+    expect(settings.soundEnabled, isFalse);
   });
 
   testWidgets('叫分浮层展示分档并可直接叫 3 分', (tester) async {

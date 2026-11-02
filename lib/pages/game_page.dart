@@ -6,7 +6,9 @@ import '../game/ddz_table_game.dart';
 import '../game/game_engine.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/screen_mode.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/turn_countdown.dart';
 import 'game/game_action_bar.dart';
 import 'game/game_overlays.dart';
 import 'game/game_top_bar.dart';
@@ -26,11 +28,18 @@ class _GamePageState extends State<GamePage> {
   @override
   void initState() {
     super.initState();
+    enterGameFullscreen();
     final provider = context.read<GameProvider>();
     _table = DdzTableGame(bus: provider.events, introDeal: true);
     if (provider.phase == GamePhase.idle) {
       provider.newGame();
     }
+  }
+
+  @override
+  void dispose() {
+    exitGameFullscreen();
+    super.dispose();
   }
 
   Future<void> _leave() async {
@@ -79,22 +88,30 @@ class _GamePageState extends State<GamePage> {
             final landscape = constraints.maxWidth > constraints.maxHeight;
             return Stack(
               children: [
-                Positioned.fill(child: GameWidget(game: table)),
+                Positioned.fill(
+                  child: RepaintBoundary(child: GameWidget(game: table)),
+                ),
                 SafeArea(
                   child: Column(
                     children: [
+                      TurnClock(
+                        provider: provider,
+                        serial: provider.engine.turnSerial,
+                        active: provider.phase == GamePhase.playing,
+                      ),
                       GameTopBar(
                         onBack: _leave,
                         onRestart: _restart,
                         compact: compact,
                       ),
+                      BottomCardsBar(engine: provider.engine, compact: compact),
                       Expanded(
                         child: GameTableArea(
                           provider: provider,
                           landscape: landscape,
+                          compact: compact,
                         ),
                       ),
-                      if (!landscape) HumanPlayRow(provider: provider),
                       if (provider.phase == GamePhase.playing)
                         GameActionBar(provider: provider),
                       HumanHandView(provider: provider, compact: compact),

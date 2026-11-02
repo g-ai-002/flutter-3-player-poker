@@ -7,7 +7,7 @@ import '../models/playing_card.dart';
 import '../theme/app_theme.dart';
 import 'playing_card_view.dart';
 
-/// 出牌区：牌型标签 + 重叠排列的小牌，空态显示「不出」。
+/// 出牌区：牌型标签 + 重叠排列的牌，空态显示「不出」。
 class PlayedCardsView extends StatelessWidget {
   const PlayedCardsView({
     super.key,
@@ -15,12 +15,20 @@ class PlayedCardsView extends StatelessWidget {
     this.combo,
     this.passed = false,
     this.maxWidth = 240,
+    this.cardWidth = 36,
+    this.showCombo = true,
   });
 
   final List<PlayingCard> cards;
   final Combo? combo;
   final bool passed;
   final double maxWidth;
+
+  /// 单张牌宽；牌桌中央比侧栏需要更大的牌面。
+  final double cardWidth;
+
+  /// 是否展示牌型名称，中央出牌区可按布局需要隐藏。
+  final bool showCombo;
 
   @override
   Widget build(BuildContext context) {
@@ -46,18 +54,18 @@ class PlayedCardsView extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          combo?.description ?? '',
-          style: const TextStyle(
-            color: kGoldSoft,
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
+        if (showCombo && combo != null)
+          Text(
+            combo!.description,
+            style: const TextStyle(
+              color: kGoldSoft,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
+        if (showCombo && combo != null) const SizedBox(height: 3),
         LayoutBuilder(
           builder: (context, constraints) {
-            const cardWidth = 27.0;
             final count = cards.length;
             final width = math.min(maxWidth, constraints.maxWidth);
             final spacing = count <= 1

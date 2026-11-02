@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../game/game_engine.dart';
 import '../theme/app_theme.dart';
+import 'turn_countdown.dart';
 
 /// AI 座位：头像、身份、剩余手牌与状态气泡。
 class SeatPanel extends StatelessWidget {
@@ -13,6 +15,7 @@ class SeatPanel extends StatelessWidget {
     this.phase = GamePhase.playing,
     this.revealed = false,
     this.onTap,
+    this.countdown,
   });
 
   final PlayerState player;
@@ -23,6 +26,9 @@ class SeatPanel extends StatelessWidget {
   /// 该玩家已明牌：显示标记，配合 [onTap] 可查看亮出的手牌。
   final bool revealed;
   final VoidCallback? onTap;
+
+  /// 出牌阶段的回合倒计时；只在该玩家回合展示。
+  final ValueListenable<int>? countdown;
 
   String get _status {
     if (thinking) return '思考中…';
@@ -150,6 +156,12 @@ class SeatPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 2),
+            if (isCurrent &&
+                phase == GamePhase.playing &&
+                countdown != null) ...[
+              TurnCountdown(seconds: countdown!, compact: true),
+              const SizedBox(height: 2),
+            ],
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
               child: Container(
