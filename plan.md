@@ -23,7 +23,7 @@
 - [x] 日志系统（按日落盘到用户目录 logs/，设置页可查看）
 - [x] Flame 牌桌：绒面背景、浮尘、发牌/出牌飞行动画、炸弹冲击波
 - [x] 响应式布局：手机竖屏 / 折叠屏 / 平板 / 桌面窗口
-- [x] 双流水线构建与发布（GitHub Actions / Gitea Actions，push tag 发布 Windows + Android + Web）
+- [x] 双流水线构建与发布（GitHub Actions / Gitea Actions，在 Actions 手动运行并选定 Tag 发布 Windows + Android + Web）
 - [x] 地主明牌：亮出手牌换取本局倍数 ×2，高手 AI 会择机明牌
 - [x] 牌谱记录：最近 20 局动作与结算落盘，可复制、导出文本
 - [x] 记牌器：顶部浮层实时统计两家剩余的牌，明牌后自动扣除已知手牌

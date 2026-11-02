@@ -34,7 +34,7 @@
 ## 下载
 
 - [Gitea Releases](http://192.168.31.120:3020/GTech/flutter-3-player-poker/releases)
-- 在 GitHub Actions / Gitea Actions 里手动运行 `build` 工作流（选中 `v*` tag 运行时按该 tag 版本发布）会构建并发布以下产物：
+- 在 GitHub Actions / Gitea Actions 里手动运行 `build` 工作流（选中 `v*` tag 运行时按该 tag 版本发布）会构建并发布以下产物，推送 Tag 不会自动触发构建：
   - `flutter-3-player-poker-<版本>-android-aarch64.apk`
   - `flutter-3-player-poker-<版本>-windows-x86_64.zip`
   - `flutter-3-player-poker-<版本>-web.zip`

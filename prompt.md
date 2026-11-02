@@ -55,8 +55,8 @@
 
 ## **版本发布**
 
-- 使用新版本的版本号创建 Git Tag 并推送到 GitHub 或 Gitea, 使用 Git Tag 触发 GitHub Actions 或 Gitea Actions
-  的workflow发布新版本到GitHub Release或Gitea Release
+- 使用新版本的版本号创建 Git Tag 并推送到 GitHub 或 Gitea, 再在 GitHub Actions 或 Gitea Actions
+  里手动运行 build 工作流并选定该 Tag, 发布新版本到GitHub Release或Gitea Release（推送 Tag 不会自动触发）
 - GitHub Release或Gitea Release新版本的发布件需要包含Windows,Android,web版本
 
 ## **文档完善**
