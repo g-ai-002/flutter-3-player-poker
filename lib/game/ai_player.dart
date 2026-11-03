@@ -79,11 +79,12 @@ class AiPlayer {
   List<PlayingCard>? choose(DdzEngine engine) {
     final player = engine.current;
     final target = engine.lastCombo;
-    final unseen = level == AiLevel.hard ? _unseenCards(engine) : null;
+    final unseen = level == AiLevel.easy ? null : _unseenCards(engine);
     if (target == null) {
       return _chooseLead(
         player.hand,
         avoidSingles: _opponentAboutToWin(engine, player),
+        endgame: _minOpponentHand(engine, player) == 1,
         unseen: unseen,
       );
     }
@@ -109,22 +110,40 @@ class AiPlayer {
 
     final normal = options.where((combo) => !combo.isBomb).toList()
       ..sort(_compareBeat);
-    if (normal.isNotEmpty) {
-      // 不为压一张小牌拆掉炸弹或王炸；残局必须拦牌时才破例。
-      final safe = normal
-          .where((combo) => !_breaksBomb(player.hand, combo))
-          .toList();
-      if (safe.isNotEmpty) {
-        if (level != AiLevel.hard) return safe.first.cards;
-        return _bestByHandCount(player.hand, safe);
+    // 不为压一张小牌拆掉炸弹或王炸；残局必须拦牌时才破例。
+    final safe = normal
+        .where((combo) => !_breaksBomb(player.hand, combo))
+        .toList();
+
+    if (normal.isNotEmpty && safe.isNotEmpty) {
+      var pool = safe;
+      // 局势不紧张时保留最后的 2 或王，别为一手小牌交出控制权。
+      if (!urgent && _shouldKeepControl(engine, player, target)) {
+        final keep = pool
+            .where((combo) => !_spendsLastControl(player.hand, combo))
+            .toList();
+        if (keep.isEmpty) return null;
+        pool = keep;
       }
-      if (!urgent) return null;
-      return normal.first.cards;
+      if (level == AiLevel.hard || player.hand.length <= 8) {
+        return _bestByHandCount(player.hand, pool);
+      }
+      return pool.first.cards;
     }
 
+    // 没有安全的普通牌型：炸完就能一手走完时果断开炸。
+    final bombs = options.where((combo) => combo.isBomb).toList()
+      ..sort(_compareBeat);
+    final finishing = bombs.where(
+      (combo) => _remainingPlays(player.hand, combo) <= 1,
+    );
+    if (finishing.isNotEmpty && player.hand.length <= 8) {
+      return finishing.first.cards;
+    }
     if (!urgent) return null;
-    options.sort(_compareBeat);
-    return options.first.cards;
+
+    final fallback = normal.isNotEmpty ? normal : bombs;
+    return fallback.first.cards;
   }
 
   /// 人类玩家的提示：优先不拆炸弹/王炸的普通牌型，没有时才提示炸弹。
@@ -148,6 +167,7 @@ class AiPlayer {
   List<PlayingCard>? _chooseLead(
     List<PlayingCard> hand, {
     bool avoidSingles = false,
+    bool endgame = false,
     Map<int, int>? unseen,
   }) {
     final options = analyzer.leadCandidates(hand);
@@ -166,26 +186,32 @@ class AiPlayer {
       final multi = pool.where((combo) => combo.cards.length > 1).toList();
       if (multi.isNotEmpty) pool = multi;
     }
+    // 对手只剩一张：领大牌，尽量让他接不上，而不是把小牌送出去。
+    if (endgame && level != AiLevel.easy) {
+      pool.sort((a, b) => b.rank.compareTo(a.rank));
+      return pool.first.cards;
+    }
 
-    if (level == AiLevel.hard && unseen != null) {
-      final counts = <String, int>{
-        for (final combo in pool) combo.signature: _remainingPlays(hand, combo),
-      };
-      pool.sort((a, b) {
+    final counts = level == AiLevel.hard
+        ? {
+            for (final combo in pool)
+              combo.signature: _remainingPlays(hand, combo),
+          }
+        : null;
+    pool.sort((a, b) {
+      if (counts != null) {
         final byCount = counts[a.signature]!.compareTo(counts[b.signature]!);
         if (byCount != 0) return byCount;
+      }
+      if (unseen != null) {
         final byControl = _controlPenalty(
           a,
           unseen,
         ).compareTo(_controlPenalty(b, unseen));
-        return byControl != 0
-            ? byControl
-            : _leadScore(a).compareTo(_leadScore(b));
-      });
-      return pool.first.cards;
-    }
-
-    pool.sort((a, b) => _leadScore(a).compareTo(_leadScore(b)));
+        if (byControl != 0) return byControl;
+      }
+      return _leadScore(a).compareTo(_leadScore(b));
+    });
     if (level == AiLevel.easy && pool.length > 1) {
       final top = pool.take(min(3, pool.length)).toList();
       if (_random.nextDouble() < 0.4) {
@@ -254,15 +280,21 @@ class AiPlayer {
     return false;
   }
 
-  /// 对手（不同阵营）只剩一张牌，必须主动压制。
-  bool _opponentAboutToWin(DdzEngine engine, PlayerState player) {
-    return engine.players.any(
-      (other) =>
-          other.id != player.id &&
-          other.isLandlord != player.isLandlord &&
-          other.hand.length == 1,
-    );
+  /// 对手（不同阵营）最少还剩几张牌；没有对手时返回一个很大的值。
+  int _minOpponentHand(DdzEngine engine, PlayerState player) {
+    var minHand = 20;
+    for (final other in engine.players) {
+      if (other.id == player.id || other.isLandlord == player.isLandlord) {
+        continue;
+      }
+      if (other.hand.length < minHand) minHand = other.hand.length;
+    }
+    return minHand;
   }
+
+  /// 对手（不同阵营）只剩一张牌，必须主动压制。
+  bool _opponentAboutToWin(DdzEngine engine, PlayerState player) =>
+      _minOpponentHand(engine, player) <= 1;
 
   bool _mustBlock(DdzEngine engine, PlayerState player) {
     final lastPlayer = engine.lastPlayer;
@@ -270,7 +302,27 @@ class AiPlayer {
         lastPlayer >= 0 &&
         engine.players[lastPlayer].isLandlord != player.isLandlord &&
         engine.players[lastPlayer].hand.length <= 2;
-    return opponentNearWin || player.hand.length <= 4;
+    return opponentNearWin ||
+        player.hand.length <= 4 ||
+        _minOpponentHand(engine, player) <= 2;
+  }
+
+  /// 局势不紧张时保留最后的控制牌：不为对手一手小牌交出唯一的 2 或王。
+  bool _shouldKeepControl(DdzEngine engine, PlayerState player, Combo target) {
+    if (player.hand.length < 8 || target.isBomb) return false;
+    if (target.rank > 10) return false;
+    return _minOpponentHand(engine, player) > 3;
+  }
+
+  /// 打出这手牌后手里再没有 2 或王，等于交出了最后的控制权。
+  bool _spendsLastControl(List<PlayingCard> hand, Combo combo) {
+    final played = combo.cards.where((card) => card.rank >= 15).length;
+    if (played == 0) return false;
+    final usedIds = combo.cards.map((card) => card.id).toSet();
+    final rest = hand.where(
+      (card) => card.rank >= 15 && !usedIds.contains(card.id),
+    );
+    return rest.isEmpty;
   }
 
   int _compareBeat(Combo a, Combo b) {

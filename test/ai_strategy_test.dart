@@ -135,6 +135,51 @@ void main() {
     });
   });
 
+  group('AI 控制牌与残局', () {
+    test('局势不紧张时不为对手的小牌交出唯一的 2', () {
+      final engine = engineWith(
+        landlord: 1,
+        hands: {
+          0: '2 3 4 5 6 7 8 9',
+          1: '3 4 5 6 7 8 9 10',
+          2: '3 4 5 6 7 8 9 10',
+        },
+        lastRanks: '10',
+        lastPlayer: 1,
+      );
+      final choice = AiPlayer(random: Random(2)).choose(engine);
+      expect(choice, isNull);
+    });
+
+    test('还有别的控制牌时正常跟牌', () {
+      final engine = engineWith(
+        landlord: 1,
+        hands: {
+          0: '2 2 3 4 5 6 7 8',
+          1: '3 4 5 6 7 8 9 10',
+          2: '3 4 5 6 7 8 9 10',
+        },
+        lastRanks: '10',
+        lastPlayer: 1,
+      );
+      final choice = AiPlayer(random: Random(2)).choose(engine);
+      expect(choice, isNotNull);
+      expect(choice!.single.rank, 15);
+    });
+
+    test('对手只剩一张时领出最大的多张牌型', () {
+      final engine = engineWith(
+        landlord: 0,
+        hands: {0: '3 9 9 K K', 1: '4', 2: '5 5 5 5 6 6'},
+      );
+      final choice = AiPlayer(random: Random(2)).choose(engine)!;
+      expect(choice.length, greaterThan(1));
+      final combo = detectCombo(choice)!;
+      expect(combo.type.name, contains('pair'));
+      expect(combo.rank, 13);
+    });
+  });
+
   group('AI 明牌策略', () {
     DdzEngine doublingEngine({required int landlord}) {
       final engine = DdzEngine(random: Random(41));
