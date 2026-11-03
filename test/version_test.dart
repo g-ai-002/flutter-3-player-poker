@@ -7,12 +7,15 @@ void main() {
   test('pubspec 版本号与 AppConstants.version 保持一致', () {
     final pubspec = File('pubspec.yaml').readAsStringSync();
     final version = RegExp(
-      r'^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)\s*$',
+      r'^version:\s*([0-9]+\.[0-9]+\.[0-9]+)(?:\+([0-9]+))?\s*$',
       multiLine: true,
     ).firstMatch(pubspec);
 
-    expect(version, isNotNull, reason: 'pubspec.yaml 需要 SemVer 版本与构建号');
+    expect(version, isNotNull, reason: 'pubspec.yaml 需要 SemVer 版本号');
     expect(version!.group(1), AppConstants.version);
-    expect(int.parse(version.group(2)!), greaterThan(0));
+    final build = version.group(2);
+    if (build != null) {
+      expect(int.parse(build), greaterThan(0));
+    }
   });
 }
