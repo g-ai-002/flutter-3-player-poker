@@ -5,6 +5,7 @@ import '../services/hand_history_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/page_frame.dart';
 import 'hand_record_page.dart';
 
 /// 牌谱列表：最近 20 局的胜负、倍数与得分，可进入详情。
@@ -40,28 +41,30 @@ class HandHistoryPage extends StatelessWidget {
           ),
         ],
       ),
-      body: ListenableBuilder(
-        listenable: HandHistoryService.instance,
-        builder: (context, _) {
-          final records = HandHistoryService.instance.records;
-          if (records.isEmpty) return const _EmptyState();
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-            itemCount: records.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final record = records[index];
-              return _RecordTile(
-                record: record,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => HandRecordPage(record: record),
+      body: PageFrame(
+        child: ListenableBuilder(
+          listenable: HandHistoryService.instance,
+          builder: (context, _) {
+            final records = HandHistoryService.instance.records;
+            if (records.isEmpty) return const _EmptyState();
+            return ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+              itemCount: records.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final record = records[index];
+                return _RecordTile(
+                  record: record,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => HandRecordPage(record: record),
+                    ),
                   ),
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

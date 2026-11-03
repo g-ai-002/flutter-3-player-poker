@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../widgets/page_frame.dart';
 
 class RulesPage extends StatelessWidget {
   const RulesPage({super.key});
@@ -26,20 +27,26 @@ class RulesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('玩法说明')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          _intro(context),
-          const SizedBox(height: 16),
-          Text('牌型', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          for (final section in _sections) ...[
-            _RuleRow(title: section.$1, rule: section.$2, example: section.$3),
+      body: PageFrame(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            _intro(context),
+            const SizedBox(height: 16),
+            Text('牌型', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
+            for (final section in _sections) ...[
+              _RuleRow(
+                title: section.$1,
+                rule: section.$2,
+                example: section.$3,
+              ),
+              const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 8),
+            _scoreNote(context),
           ],
-          const SizedBox(height: 8),
-          _scoreNote(context),
-        ],
+        ),
       ),
     );
   }

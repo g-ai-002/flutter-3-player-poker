@@ -4,6 +4,7 @@ import '../services/stats_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/constants.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/page_frame.dart';
 
 class StatsPage extends StatelessWidget {
   const StatsPage({super.key});
@@ -22,81 +23,83 @@ class StatsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('数据统计')),
-      body: ListenableBuilder(
-        listenable: StatsService.instance,
-        builder: (context, _) {
-          final stats = StatsService.instance.stats;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-            children: [
-              _SummaryCard(stats: stats),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _StatTile(
-                      label: '地主局数',
-                      value: '${stats.landlordGames}',
-                      note:
-                          '胜率 ${(stats.landlordWinRate * 100).toStringAsFixed(1)}%',
+      body: PageFrame(
+        child: ListenableBuilder(
+          listenable: StatsService.instance,
+          builder: (context, _) {
+            final stats = StatsService.instance.stats;
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+              children: [
+                _SummaryCard(stats: stats),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatTile(
+                        label: '地主局数',
+                        value: '${stats.landlordGames}',
+                        note:
+                            '胜率 ${(stats.landlordWinRate * 100).toStringAsFixed(1)}%',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _StatTile(
+                        label: '农民局数',
+                        value: '${stats.peasantGames}',
+                        note:
+                            '胜率 ${(stats.peasantWinRate * 100).toStringAsFixed(1)}%',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatTile(
+                        label: '累计积分',
+                        value: '${stats.totalScore}',
+                        note: stats.totalScore >= 0 ? '保持盈利' : '继续加油',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _StatTile(
+                        label: '最高连胜',
+                        value: '${stats.bestStreak}',
+                        note: stats.currentStreak > 0
+                            ? '当前 ${stats.currentStreak} 连胜'
+                            : '从下一局开始',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                if (stats.games > 0)
+                  OutlinedButton.icon(
+                    onPressed: () => _reset(context),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('清空生涯数据'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _StatTile(
-                      label: '农民局数',
-                      value: '${stats.peasantGames}',
-                      note:
-                          '胜率 ${(stats.peasantWinRate * 100).toStringAsFixed(1)}%',
+                const SizedBox(height: 18),
+                Center(
+                  child: Text(
+                    '数据仅保存在本机 · v${AppConstants.version}',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _StatTile(
-                      label: '累计积分',
-                      value: '${stats.totalScore}',
-                      note: stats.totalScore >= 0 ? '保持盈利' : '继续加油',
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _StatTile(
-                      label: '最高连胜',
-                      value: '${stats.bestStreak}',
-                      note: stats.currentStreak > 0
-                          ? '当前 ${stats.currentStreak} 连胜'
-                          : '从下一局开始',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 22),
-              if (stats.games > 0)
-                OutlinedButton.icon(
-                  onPressed: () => _reset(context),
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('清空生涯数据'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.error,
                   ),
                 ),
-              const SizedBox(height: 18),
-              Center(
-                child: Text(
-                  '数据仅保存在本机 · v${AppConstants.version}',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }

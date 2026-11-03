@@ -4,10 +4,12 @@ import 'package:provider/provider.dart';
 
 import '../models/app_settings.dart';
 import '../providers/settings_provider.dart';
+import '../services/audio_service.dart';
 import '../services/file_system_service.dart';
 import '../services/log_service.dart';
 import '../utils/constants.dart';
 import '../utils/platform_info.dart';
+import '../widgets/page_frame.dart';
 import '../widgets/section_card.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -63,148 +65,170 @@ class SettingsPage extends StatelessWidget {
     final settings = context.watch<SettingsProvider>();
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-        children: [
-          SectionCard(
-            title: '外观',
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('深色模式', style: TextStyle(fontSize: 14)),
-                        const SizedBox(height: 3),
-                        Text(
-                          '牌桌始终使用深色绒面，其余页面跟随此开关',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Switch.adaptive(
-                    value: settings.darkMode,
-                    onChanged: settings.setDarkMode,
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SectionCard(
-            title: '声音',
-            children: [
-              _SwitchRow(
-                label: '音效',
-                description: '发牌、出牌、炸弹与结算提示音，全部由程序合成',
-                value: settings.soundEnabled,
-                onChanged: settings.setSoundEnabled,
-              ),
-              Divider(
-                height: 18,
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
-              _SwitchRow(
-                label: '背景音乐',
-                description: '对局中循环播放轻柔的本地合成旋律',
-                value: settings.musicEnabled,
-                onChanged: settings.setMusicEnabled,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SectionCard(
-            title: '对局',
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      body: PageFrame(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          children: [
+            SectionCard(
+              title: '外观',
+              children: [
+                Row(
                   children: [
-                    const Text('AI 难度', style: TextStyle(fontSize: 14)),
-                    const SizedBox(height: 3),
-                    Text(
-                      settings.aiLevel.description,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('深色模式', style: TextStyle(fontSize: 14)),
+                          const SizedBox(height: 3),
+                          Text(
+                            '牌桌始终使用深色绒面，其余页面跟随此开关',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final level in AiLevel.values)
-                          ChoiceChip(
-                            label: Text(level.label),
-                            selected: settings.aiLevel == level,
-                            onSelected: (_) => settings.setAiLevel(level),
-                          ),
-                      ],
+                    Switch.adaptive(
+                      value: settings.darkMode,
+                      onChanged: settings.setDarkMode,
                     ),
                   ],
                 ),
-              ),
-              Divider(
-                height: 18,
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('AI 思考速度', style: TextStyle(fontSize: 14)),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final speed in AiSpeed.values)
-                          ChoiceChip(
-                            label: Text(speed.label),
-                            selected: settings.aiSpeed == speed,
-                            onSelected: (_) => settings.setAiSpeed(speed),
-                          ),
-                      ],
-                    ),
-                  ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            SectionCard(
+              title: '声音',
+              children: [
+                _SwitchRow(
+                  label: '音效',
+                  description: '发牌、出牌、炸弹与结算提示音，全部由程序合成',
+                  value: settings.soundEnabled,
+                  onChanged: settings.setSoundEnabled,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SectionCard(
-            title: '诊断',
-            children: [_LogPanel(onShowLogs: () => _showLogs(context))],
-          ),
-          const SizedBox(height: 12),
-          SectionCard(
-            title: '关于',
-            children: [
-              const InfoRow(label: '应用', value: AppConstants.appName),
-              const InfoRow(label: '版本', value: 'v${AppConstants.version}'),
-              InfoRow(label: '平台', value: platformLabel),
-              const InfoRow(label: '运行方式', value: '本地单机 · 不联网'),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Center(
-            child: Text(
-              '斗地主 · Flutter + Flame',
-              style: TextStyle(
-                fontSize: 10.5,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                Divider(
+                  height: 18,
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+                _SwitchRow(
+                  label: '背景音乐',
+                  description: '对局中循环播放轻柔的本地合成旋律',
+                  value: settings.musicEnabled,
+                  onChanged: settings.setMusicEnabled,
+                ),
+                Divider(
+                  height: 18,
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      if (!settings.soundEnabled) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('音效已关闭，请先打开音效开关')),
+                        );
+                        return;
+                      }
+                      AudioService.instance.play(AudioCue.play);
+                    },
+                    icon: const Icon(Icons.volume_up_outlined, size: 16),
+                    label: const Text('试听出牌音效'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SectionCard(
+              title: '对局',
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('AI 难度', style: TextStyle(fontSize: 14)),
+                      const SizedBox(height: 3),
+                      Text(
+                        settings.aiLevel.description,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          for (final level in AiLevel.values)
+                            ChoiceChip(
+                              label: Text(level.label),
+                              selected: settings.aiLevel == level,
+                              onSelected: (_) => settings.setAiLevel(level),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(
+                  height: 18,
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('AI 思考速度', style: TextStyle(fontSize: 14)),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          for (final speed in AiSpeed.values)
+                            ChoiceChip(
+                              label: Text(speed.label),
+                              selected: settings.aiSpeed == speed,
+                              onSelected: (_) => settings.setAiSpeed(speed),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SectionCard(
+              title: '诊断',
+              children: [_LogPanel(onShowLogs: () => _showLogs(context))],
+            ),
+            const SizedBox(height: 12),
+            SectionCard(
+              title: '关于',
+              children: [
+                const InfoRow(label: '应用', value: AppConstants.appName),
+                const InfoRow(label: '版本', value: 'v${AppConstants.version}'),
+                InfoRow(label: '平台', value: platformLabel),
+                const InfoRow(label: '运行方式', value: '本地单机 · 不联网'),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Center(
+              child: Text(
+                '斗地主 · Flutter + Flame',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

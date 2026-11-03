@@ -7,6 +7,7 @@ import '../models/playing_card.dart';
 import '../services/file_system_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../widgets/page_frame.dart';
 import '../widgets/playing_card_view.dart';
 import '../widgets/section_card.dart';
 import 'replay_page.dart';
@@ -48,55 +49,57 @@ class HandRecordPage extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          _SummaryCard(record: record),
-          const SizedBox(height: 12),
-          _BottomCardsCard(cards: record.bottomCards),
-          const SizedBox(height: 16),
-          Row(
-            children: [
+      body: PageFrame(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            _SummaryCard(record: record),
+            const SizedBox(height: 12),
+            _BottomCardsCard(cards: record.bottomCards),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text(
+                  '出牌记录',
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '共 ${record.actions.length} 步',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: record.actions.isEmpty
+                      ? null
+                      : () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => ReplayPage(record: record),
+                          ),
+                        ),
+                  icon: const Icon(Icons.play_circle_outline, size: 16),
+                  label: const Text('复盘'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (record.actions.isEmpty)
               Text(
-                '出牌记录',
-                style: Theme.of(context).textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '共 ${record.actions.length} 步',
+                '这局没有留下动作记录',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-              ),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: record.actions.isEmpty
-                    ? null
-                    : () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => ReplayPage(record: record),
-                        ),
-                      ),
-                icon: const Icon(Icons.play_circle_outline, size: 16),
-                label: const Text('复盘'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (record.actions.isEmpty)
-            Text(
-              '这局没有留下动作记录',
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            )
-          else
-            for (var i = 0; i < record.actions.length; i++)
-              _ActionTile(index: i + 1, action: record.actions[i]),
-        ],
+              )
+            else
+              for (var i = 0; i < record.actions.length; i++)
+                _ActionTile(index: i + 1, action: record.actions[i]),
+          ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         top: false,
