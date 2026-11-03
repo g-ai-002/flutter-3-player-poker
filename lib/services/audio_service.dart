@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_soloud/flutter_soloud.dart';
 
 import '../utils/test_environment.dart';
 import 'log_service.dart';
@@ -12,29 +12,32 @@ enum AudioCue { deal, play, pass, bomb, bid, double, reveal, win, lose }
 
 /// 本地音频：音效与背景音乐全部用正弦波实时合成 WAV，不携带音频文件。
 ///
-/// 播放失败只记录一次日志，绝不影响对局；Web 端背景音乐在用户首次
-/// 点击「开始对局」后才会启动，符合浏览器的自动播放策略。
+/// 合成好的 WAV 通过 flutter_soloud 的内存音源播放，Android、Windows 与
+/// Web 共用同一套实现。播放失败只记录一次日志，绝不影响对局；Web 端背景
+/// 音乐在用户首次点击「开始对局」后才会启动，符合浏览器的自动播放策略。
 class AudioService {
   AudioService._();
 
   static final AudioService instance = AudioService._();
 
-  AudioPlayer? _sfxPlayer;
-  AudioPlayer? _bgmPlayer;
+  final Map<AudioCue, AudioSource> _sources = {};
   final Map<AudioCue, Uint8List> _cache = {};
 
+  AudioSource? _bgmSource;
+  SoundHandle? _bgmHandle;
   Uint8List? _bgmBytes;
+
+  Future<void>? _loading;
+  bool _loadFailed = false;
   bool _soundEnabled = true;
   bool _musicEnabled = true;
   bool _bgmRequested = false;
-  bool _bgmPlaying = false;
   bool _warned = false;
 
   bool get soundEnabled => _soundEnabled;
   bool get musicEnabled => _musicEnabled;
 
-  AudioPlayer get _sfx => _sfxPlayer ??= AudioPlayer();
-  AudioPlayer get _bgm => _bgmPlayer ??= AudioPlayer();
+  SoLoud get _soloud => SoLoud.instance;
 
   /// 测试环境没有原生音频通道，也不应留下播放器资源。
   bool get _blocked => isFlutterTest;
@@ -43,20 +46,23 @@ class AudioService {
     if (_soundEnabled == value) return;
     _soundEnabled = value;
     LogService.info('音效: ${value ? '开启' : '关闭'}');
-    if (!value && _sfxPlayer != null) _ignore(_sfxPlayer!.stop());
+    if (value || !_soloud.isInitialized) return;
+    for (final source in _sources.values) {
+      _soloud.stopAudioSource(source);
+    }
   }
 
   void setMusicEnabled(bool value) {
     if (_musicEnabled == value) return;
     _musicEnabled = value;
     LogService.info('背景音乐: ${value ? '开启' : '关闭'}');
-    if (!_bgmRequested) return;
-    if (value) {
-      _bgmPlaying ? _ignore(_bgm.resume()) : startBgm();
-    } else {
-      _bgmPlaying = false;
-      if (_bgmPlayer != null) _ignore(_bgm.pause());
+    if (!_bgmRequested || !_soloud.isInitialized) return;
+    final handle = _bgmHandle;
+    if (handle == null || !_soloud.getIsValidVoiceHandle(handle)) {
+      if (value) startBgm();
+      return;
     }
+    _soloud.setPause(handle, !value);
   }
 
   /// 首次进入牌桌前生成常用波形，避免第一次出牌时才合成。
@@ -65,49 +71,94 @@ class AudioService {
       _bytes(cue);
     }
     if (_blocked) return;
-    _ignore(_sfx.setVolume(0.65));
+    unawaited(_ensureLoaded());
   }
 
   /// 开始循环背景音乐；静音时只记录请求，取消静音后再播放。
   void startBgm() {
     _bgmRequested = true;
-    if (_blocked) return;
-    _bgmBytes ??= _buildBgmLoop();
-    if (!_musicEnabled || _bgmPlaying) return;
-    _ignore(_playBgm());
+    if (_blocked || !_musicEnabled) return;
+    unawaited(_playBgm());
   }
 
   void stopBgm() {
     _bgmRequested = false;
-    _bgmPlaying = false;
-    if (_bgmPlayer != null) _ignore(_bgm.pause());
+    _stopBgmVoice();
   }
 
   void play(AudioCue cue) {
     if (_blocked || !_soundEnabled) return;
-    _ignore(_playCue(cue));
+    unawaited(_playCue(cue));
   }
 
   Future<void> _playCue(AudioCue cue) async {
     try {
-      await _sfx.stop();
-      await _sfx.play(BytesSource(_bytes(cue)));
+      final source = await _ensureSource(cue);
+      if (source == null || !_soundEnabled) return;
+      _soloud.stopAudioSource(source);
+      _soloud.play(source, volume: 0.65);
     } catch (e) {
       _warnOnce('音效播放失败: $e');
     }
   }
 
   Future<void> _playBgm() async {
-    if (!_bgmRequested || !_musicEnabled) return;
     try {
-      await _bgm.setReleaseMode(ReleaseMode.loop);
-      await _bgm.setVolume(0.26);
-      await _bgm.play(BytesSource(_bgmBytes!));
-      _bgmPlaying = true;
+      final source = await _ensureBgmSource();
+      if (source == null || !_bgmRequested || !_musicEnabled) return;
+      final handle = _bgmHandle;
+      if (handle != null && _soloud.getIsValidVoiceHandle(handle)) {
+        _soloud.setPause(handle, false);
+        return;
+      }
+      _bgmHandle = _soloud.play(source, volume: 0.26, looping: true);
     } catch (e) {
-      _bgmPlaying = false;
       _warnOnce('背景音乐播放失败: $e');
     }
+  }
+
+  void _stopBgmVoice() {
+    final handle = _bgmHandle;
+    _bgmHandle = null;
+    if (handle == null || !_soloud.isInitialized) return;
+    if (_soloud.getIsValidVoiceHandle(handle)) _ignore(_soloud.stop(handle));
+  }
+
+  Future<AudioSource?> _ensureSource(AudioCue cue) async {
+    await _ensureLoaded();
+    return _sources[cue];
+  }
+
+  Future<void> _ensureLoaded() {
+    if (_blocked || _loadFailed || _sources.isNotEmpty) {
+      return Future.value();
+    }
+    return _loading ??= _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      if (!_soloud.isInitialized) await _soloud.init();
+      for (final cue in AudioCue.values) {
+        _sources[cue] = await _soloud.loadMem(
+          'poker-${cue.name}.wav',
+          _bytes(cue),
+        );
+      }
+    } catch (e) {
+      _loadFailed = true;
+      _disposeSources(_sources.values.toList());
+      _warnOnce('音效初始化失败: $e');
+    }
+  }
+
+  Future<AudioSource?> _ensureBgmSource() async {
+    if (_blocked) return null;
+    final loaded = _bgmSource;
+    if (loaded != null) return loaded;
+    if (!_soloud.isInitialized) await _soloud.init();
+    _bgmBytes ??= _buildBgmLoop();
+    return _bgmSource = await _soloud.loadMem('poker-bgm.wav', _bgmBytes!);
   }
 
   Uint8List _bytes(AudioCue cue) {
@@ -308,6 +359,20 @@ class AudioService {
     });
   }
 
+  void _disposeSources(List<AudioSource> sources) {
+    for (final source in sources) {
+      unawaited(_disposeSource(source));
+    }
+  }
+
+  Future<void> _disposeSource(AudioSource source) async {
+    try {
+      await _soloud.disposeSource(source);
+    } catch (e) {
+      _warnOnce('音频释放失败: $e');
+    }
+  }
+
   void _ignore(Future<void> future) {
     unawaited(future.catchError((Object e) => _warnOnce('音频操作失败: $e')));
   }
@@ -319,11 +384,12 @@ class AudioService {
   }
 
   void dispose() {
-    final sfx = _sfxPlayer;
-    final bgm = _bgmPlayer;
-    _sfxPlayer = null;
-    _bgmPlayer = null;
-    if (sfx != null) _ignore(sfx.dispose());
-    if (bgm != null) _ignore(bgm.dispose());
+    final sources = [..._sources.values, ?_bgmSource];
+    _sources.clear();
+    _bgmSource = null;
+    _bgmHandle = null;
+    _bgmRequested = false;
+    if (_blocked) return;
+    _disposeSources(sources);
   }
 }

@@ -17,7 +17,7 @@ dependencies:
   path_provider: 2.1.6
   path: 1.9.1
   window_manager: 0.5.2
-  audioplayers: 6.8.1
+  flutter_soloud: 5.2.2
 
 dev_dependencies:
   flutter_test:
@@ -26,3 +26,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+# 音效与背景音乐全部是运行时合成的 WAV，用不到 Ogg/Opus/Vorbis/FLAC。
+# 关掉 Xiph 后构建钩子不再从 GitHub Releases 下载预编译库（曾因 502 让 CI 构建失败）。
+hooks:
+  user_defines:
+    flutter_soloud:
+      no_xiph_libs: true
