@@ -192,7 +192,7 @@ jobs:
         shell: bash
         run: flutter create --platforms=windows --project-name ${{ needs.metadata.outputs.project_name }} .
 
-      - name: 🩹 CMakeLists 启用 CMP0091 策略（audioplayers_windows 4.x + VS 2026 要求）
+      - name: 🩹 CMakeLists 启用 CMP0091 策略（VS 2026 要求）
         shell: bash
         run: |
           sed -i -E 's|^(cmake_minimum_required\(VERSION [0-9.]+\))$|\1\ncmake_policy(SET CMP0091 NEW)|' windows/CMakeLists.txt
@@ -261,6 +261,10 @@ jobs:
         run: |
           set -euo pipefail
           flutter create --platforms=web --project-name ${{ needs.metadata.outputs.project_name }} .
+
+          # SoLoud 的 Web 端必须先加载它自带的 WASM 加载器，否则 init() 报模块错误。
+          sed -i 's|<body>|<body>\n  <script src="assets/packages/flutter_soloud/web/init_soloud.js" defer></script>|' web/index.html
+          grep -n 'init_soloud.js' web/index.html
 
           app_desc=$(grep '^description:' pubspec.yaml | sed -E 's/^description:[[:space:]]*//')
           app_title=$(echo "$app_desc" | sed -E 's/[[:space:]]*-.*$//')
