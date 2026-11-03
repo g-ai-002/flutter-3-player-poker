@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -6,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'pages/home_page.dart';
 import 'providers/game_provider.dart';
 import 'providers/settings_provider.dart';
+import 'services/audio_service.dart';
 import 'services/hand_history_service.dart';
 import 'services/log_service.dart';
 import 'services/logging_init.dart';
@@ -40,6 +43,8 @@ Future<void> main() async {
   };
 
   runApp(PokerApp(storage: storage));
+  // 桌面与移动端启动即预热音频；Web 端等首次点击后再初始化，避免自动播放策略拦截。
+  if (!kIsWeb) unawaited(AudioService.instance.initialize());
 }
 
 class PokerApp extends StatelessWidget {

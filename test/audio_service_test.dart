@@ -55,4 +55,23 @@ void main() {
     expect(seconds, closeTo(12, 0.1));
     expect(wav.length, lessThan(600 * 1024));
   });
+
+  test('出牌音效足够长且响度可闻', () {
+    final wav = AudioService.instance.debugWav(AudioCue.play);
+    final data = ByteData.sublistView(wav);
+    final samples = (wav.length - 44) ~/ 2;
+
+    expect(samples / 22050, greaterThanOrEqualTo(0.1), reason: '太短的提示音听不清');
+    var peak = 0;
+    for (var i = 0; i < samples; i++) {
+      final value = data.getInt16(44 + i * 2, Endian.little).abs();
+      if (value > peak) peak = value;
+    }
+    expect(peak, greaterThan(6000), reason: '波形峰值太低会听不到');
+  });
+
+  test('测试环境初始化音频不会抛异常', () async {
+    await AudioService.instance.initialize();
+    AudioService.instance.play(AudioCue.play);
+  });
 }

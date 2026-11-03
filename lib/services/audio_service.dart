@@ -13,7 +13,7 @@ enum AudioCue { deal, play, pass, bomb, bid, double, reveal, win, lose }
 /// 本地音频：音效与背景音乐全部用正弦波实时合成 WAV，不携带音频文件。
 ///
 /// 合成好的 WAV 通过 flutter_soloud 的内存音源播放，Android、Windows 与
-/// Web 共用同一套实现。播放失败只记录一次日志，绝不影响对局；Web 端背景
+/// Web 共用同一套实现。播放失败只记录日志，绝不影响对局；Web 端背景
 /// 音乐在用户首次点击「开始对局」后才会启动，符合浏览器的自动播放策略。
 class AudioService {
   AudioService._();
@@ -22,17 +22,18 @@ class AudioService {
 
   final Map<AudioCue, AudioSource> _sources = {};
   final Map<AudioCue, Uint8List> _cache = {};
+  final Set<String> _reported = {};
 
   AudioSource? _bgmSource;
   SoundHandle? _bgmHandle;
   Uint8List? _bgmBytes;
 
   Future<void>? _loading;
-  bool _loadFailed = false;
+  Future<void>? _engineReady;
+  DateTime? _retryAt;
   bool _soundEnabled = true;
   bool _musicEnabled = true;
   bool _bgmRequested = false;
-  bool _warned = false;
 
   bool get soundEnabled => _soundEnabled;
   bool get musicEnabled => _musicEnabled;
@@ -46,7 +47,11 @@ class AudioService {
     if (_soundEnabled == value) return;
     _soundEnabled = value;
     LogService.info('音效: ${value ? '开启' : '关闭'}');
-    if (value || !_soloud.isInitialized) return;
+    if (value) {
+      unawaited(_ensureLoaded());
+      return;
+    }
+    if (!_soloud.isInitialized) return;
     for (final source in _sources.values) {
       _soloud.stopAudioSource(source);
     }
@@ -64,6 +69,9 @@ class AudioService {
     }
     _soloud.setPause(handle, !value);
   }
+
+  /// 启动时调用：初始化音频引擎并预加载全部提示音，失败原因会写入日志。
+  Future<void> initialize() => _ensureLoaded();
 
   /// 首次进入牌桌前生成常用波形，避免第一次出牌时才合成。
   void prewarm() {
@@ -95,10 +103,9 @@ class AudioService {
     try {
       final source = await _ensureSource(cue);
       if (source == null || !_soundEnabled) return;
-      _soloud.stopAudioSource(source);
-      _soloud.play(source, volume: 0.65);
-    } catch (e) {
-      _warnOnce('音效播放失败: $e');
+      _soloud.play(source, volume: 0.95);
+    } catch (e, stack) {
+      _report('音效播放失败（${cue.name}）', e, stack);
     }
   }
 
@@ -112,8 +119,8 @@ class AudioService {
         return;
       }
       _bgmHandle = _soloud.play(source, volume: 0.26, looping: true);
-    } catch (e) {
-      _warnOnce('背景音乐播放失败: $e');
+    } catch (e, stack) {
+      _report('背景音乐播放失败', e, stack);
     }
   }
 
@@ -125,30 +132,51 @@ class AudioService {
   }
 
   Future<AudioSource?> _ensureSource(AudioCue cue) async {
+    final loaded = _sources[cue];
+    if (loaded != null) return loaded;
     await _ensureLoaded();
     return _sources[cue];
   }
 
   Future<void> _ensureLoaded() {
-    if (_blocked || _loadFailed || _sources.isNotEmpty) {
+    if (_blocked || _sources.length == AudioCue.values.length) {
       return Future.value();
     }
-    return _loading ??= _load();
+    final retryAt = _retryAt;
+    if (retryAt != null && DateTime.now().isBefore(retryAt)) {
+      return Future.value();
+    }
+    return _loading ??= _load().whenComplete(() => _loading = null);
+  }
+
+  /// 全局唯一的引擎初始化入口。
+  ///
+  /// SoLoud 的 `init()` 在检测到引擎已初始化时会先 deinit 再重建，正在加载的
+  /// 音源会全部失效。背景音乐与音效曾各自调用 init，导致音效加载被中断、
+  /// 出牌永远没有声音，因此这里必须合并成同一个 Future。
+  Future<void> _ensureEngine() {
+    if (_soloud.isInitialized) return Future.value();
+    return _engineReady ??= _soloud.init().whenComplete(
+      () => _engineReady = null,
+    );
   }
 
   Future<void> _load() async {
     try {
-      if (!_soloud.isInitialized) await _soloud.init();
+      await _ensureEngine();
       for (final cue in AudioCue.values) {
+        if (_sources.containsKey(cue)) continue;
         _sources[cue] = await _soloud.loadMem(
           'poker-${cue.name}.wav',
           _bytes(cue),
         );
       }
-    } catch (e) {
-      _loadFailed = true;
-      _disposeSources(_sources.values.toList());
-      _warnOnce('音效初始化失败: $e');
+      _retryAt = null;
+      LogService.info('音效已就绪：${_sources.length}/${AudioCue.values.length}');
+    } catch (e, stack) {
+      // 初始化失败后 5 秒允许重试，避免一次失败导致整局静音。
+      _retryAt = DateTime.now().add(const Duration(seconds: 5));
+      _report('音效加载失败', e, stack);
     }
   }
 
@@ -156,7 +184,7 @@ class AudioService {
     if (_blocked) return null;
     final loaded = _bgmSource;
     if (loaded != null) return loaded;
-    if (!_soloud.isInitialized) await _soloud.init();
+    await _ensureEngine();
     _bgmBytes ??= _buildBgmLoop();
     return _bgmSource = await _soloud.loadMem('poker-bgm.wav', _bgmBytes!);
   }
@@ -177,28 +205,33 @@ class AudioService {
     switch (cue) {
       case AudioCue.deal:
         return _mix([
-          _wave(440, 60, gain: 0.22),
-          _wave(660, 90, gain: 0.18, delayMs: 70),
+          _wave(520, 70, gain: 0.32, decay: 2.2),
+          _wave(660, 80, gain: 0.28, decay: 2.2, delayMs: 65),
+          _wave(820, 90, gain: 0.26, decay: 2.2, delayMs: 130),
         ]);
       case AudioCue.play:
-        return _wave(760, 65, gain: 0.3, decay: 2.6);
+        // 出牌：纸牌拍在桌面上的一声清脆响，混入少量噪声更接近材质声。
+        return _mix([
+          _wave(760, 120, gain: 0.42, decay: 2.4),
+          _noise(80, gain: 0.22),
+        ]);
       case AudioCue.pass:
-        return _wave(280, 120, gain: 0.24, decay: 1.6);
+        return _wave(320, 170, gain: 0.32);
       case AudioCue.bomb:
         return _mix([
-          _wave(90, 320, gain: 0.42, decay: 1.4),
-          _noise(280, gain: 0.3),
+          _wave(90, 380, gain: 0.5, decay: 1.4),
+          _noise(320, gain: 0.38),
         ]);
       case AudioCue.bid:
         return _mix([
-          _wave(520, 90, gain: 0.24),
-          _wave(780, 120, gain: 0.2, delayMs: 80),
+          _wave(560, 110),
+          _wave(840, 150, gain: 0.26, delayMs: 90),
         ]);
       case AudioCue.double:
         return _mix([
-          _wave(392, 90, gain: 0.22),
-          _wave(523, 90, gain: 0.22, delayMs: 80),
-          _wave(784, 160, gain: 0.24, delayMs: 160),
+          _wave(392, 110, gain: 0.26),
+          _wave(523, 110, gain: 0.26, delayMs: 80),
+          _wave(784, 180, gain: 0.28, delayMs: 160),
         ]);
       case AudioCue.reveal:
         return _mix([
@@ -206,7 +239,7 @@ class AudioService {
             _wave(
               660 * pow(1.25, i).toDouble(),
               220,
-              gain: 0.14,
+              gain: 0.16,
               delayMs: i * 55,
             ),
         ]);
@@ -215,13 +248,13 @@ class AudioService {
           _wave(523, 130),
           _wave(659, 130, delayMs: 120),
           _wave(784, 150, delayMs: 240),
-          _wave(1047, 260, gain: 0.22, delayMs: 380),
+          _wave(1047, 260, gain: 0.24, delayMs: 380),
         ]);
       case AudioCue.lose:
         return _mix([
-          _wave(392, 160, gain: 0.24),
-          _wave(330, 160, gain: 0.24, delayMs: 150),
-          _wave(262, 320, gain: 0.22, delayMs: 300),
+          _wave(392, 160, gain: 0.26),
+          _wave(330, 160, gain: 0.26, delayMs: 150),
+          _wave(262, 320, gain: 0.24, delayMs: 300),
         ]);
     }
   }
@@ -229,7 +262,7 @@ class AudioService {
   Uint8List _wave(
     double freq,
     int ms, {
-    double gain = 0.25,
+    double gain = 0.3,
     double decay = 1.8,
     int delayMs = 0,
   }) {
@@ -369,18 +402,18 @@ class AudioService {
     try {
       await _soloud.disposeSource(source);
     } catch (e) {
-      _warnOnce('音频释放失败: $e');
+      _report('音频释放失败', e);
     }
   }
 
   void _ignore(Future<void> future) {
-    unawaited(future.catchError((Object e) => _warnOnce('音频操作失败: $e')));
+    unawaited(future.catchError((Object e) => _report('音频操作失败', e)));
   }
 
-  void _warnOnce(String message) {
-    if (_warned) return;
-    _warned = true;
-    LogService.warning(message);
+  /// 同类错误只写一次日志，避免每回合刷屏。
+  void _report(String message, Object error, [StackTrace? stack]) {
+    if (!_reported.add('$message|$error')) return;
+    LogService.error('$message: $error', error, stack);
   }
 
   void dispose() {
