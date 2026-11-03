@@ -2,11 +2,13 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../game/card_counter.dart';
 import '../game/ddz_table_game.dart';
 import '../game/game_engine.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/screen_mode.dart';
+import '../widgets/card_counter_overlay.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/turn_countdown.dart';
 import 'game/game_action_bar.dart';
@@ -23,7 +25,9 @@ class GamePage extends StatefulWidget {
 }
 
 class _GamePageState extends State<GamePage> {
+  final GlobalKey _gameKey = GlobalKey();
   DdzTableGame? _table;
+  bool _counterOpen = false;
 
   @override
   void initState() {
@@ -71,6 +75,23 @@ class _GamePageState extends State<GamePage> {
     if (ok) provider.newGame();
   }
 
+  /// 把出牌区的屏幕坐标换算成牌桌内的相对坐标，飞牌动画据此落地。
+  void _syncPileCenters(Map<int, Offset> centers) {
+    final box = _gameKey.currentContext?.findRenderObject() as RenderBox?;
+    final table = _table;
+    if (box == null || !box.hasSize || table == null) return;
+    final size = box.size;
+    if (size.isEmpty) return;
+    table.setPileAnchors({
+      for (final entry in centers.entries)
+        if (box.globalToLocal(entry.value) case final local)
+          entry.key: Offset(
+            (local.dx / size.width).clamp(0.0, 1.0),
+            (local.dy / size.height).clamp(0.0, 1.0),
+          ),
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<GameProvider>();
@@ -89,7 +110,9 @@ class _GamePageState extends State<GamePage> {
             return Stack(
               children: [
                 Positioned.fill(
-                  child: RepaintBoundary(child: GameWidget(game: table)),
+                  child: RepaintBoundary(
+                    child: GameWidget(key: _gameKey, game: table),
+                  ),
                 ),
                 SafeArea(
                   child: Column(
@@ -103,6 +126,9 @@ class _GamePageState extends State<GamePage> {
                         onBack: _leave,
                         onRestart: _restart,
                         compact: compact,
+                        counterOpen: _counterOpen,
+                        onToggleCounter: () =>
+                            setState(() => _counterOpen = !_counterOpen),
                       ),
                       BottomCardsBar(engine: provider.engine, compact: compact),
                       Expanded(
@@ -110,6 +136,7 @@ class _GamePageState extends State<GamePage> {
                           provider: provider,
                           landscape: landscape,
                           compact: compact,
+                          onPileCenters: _syncPileCenters,
                         ),
                       ),
                       if (provider.phase == GamePhase.playing)
@@ -125,6 +152,22 @@ class _GamePageState extends State<GamePage> {
                     bottom: provider.phase == GamePhase.playing ? 200 : 120,
                     child: Center(
                       child: FeedbackToast(text: provider.feedback!),
+                    ),
+                  ),
+                // 记牌器常驻浮层：不设遮罩，只有关闭按钮能收起。
+                if (_counterOpen)
+                  Positioned(
+                    top: MediaQuery.paddingOf(context).top + 96,
+                    left: 12,
+                    right: 12,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 460),
+                        child: CardCounterOverlay(
+                          counts: CardCounter.remaining(provider.engine),
+                          onClose: () => setState(() => _counterOpen = false),
+                        ),
+                      ),
                     ),
                   ),
                 if (provider.phase == GamePhase.bidding &&

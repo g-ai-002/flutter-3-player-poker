@@ -55,18 +55,47 @@ class BottomCardsBar extends StatelessWidget {
   }
 }
 
-/// 牌桌中央区域：三家最近一手牌集中在中央，两侧只保留座位信息。
-class GameTableArea extends StatelessWidget {
+/// 牌桌中央区域：三家出牌区呈三足鼎立。
+///
+/// 左右两家在牌桌两侧偏上，玩家出牌区贴底居中，中间留给回合提示。
+/// 布局完成后把三处出牌区的屏幕坐标回传给牌桌页，供 Flame 飞牌动画落点使用。
+class GameTableArea extends StatefulWidget {
   const GameTableArea({
     super.key,
     required this.provider,
     required this.landscape,
     this.compact = false,
+    this.onPileCenters,
   });
 
   final GameProvider provider;
   final bool landscape;
   final bool compact;
+
+  /// 三家出牌区的全局坐标（0 玩家、1 右侧、2 左侧）。
+  final ValueChanged<Map<int, Offset>>? onPileCenters;
+
+  @override
+  State<GameTableArea> createState() => _GameTableAreaState();
+}
+
+class _GameTableAreaState extends State<GameTableArea> {
+  final Map<int, GlobalKey> _pileKeys = {
+    for (final id in const [0, 1, 2]) id: GlobalKey(),
+  };
+
+  void _reportPileCenters() {
+    if (!mounted) return;
+    final callback = widget.onPileCenters;
+    if (callback == null) return;
+    final centers = <int, Offset>{};
+    for (final entry in _pileKeys.entries) {
+      final box = entry.value.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize) return;
+      centers[entry.key] = box.localToGlobal(box.size.center(Offset.zero));
+    }
+    callback(centers);
+  }
 
   /// 明牌手牌浮层：地主亮牌后，农民可随时查看。
   void _showRevealedHand(BuildContext context, PlayerState player) {
@@ -97,7 +126,7 @@ class GameTableArea extends StatelessWidget {
     );
   }
 
-  SeatPanel _seatPanel(
+  Widget _seatPanel(
     BuildContext context,
     GameProvider provider,
     PlayerState player,
@@ -111,208 +140,242 @@ class GameTableArea extends StatelessWidget {
       phase: provider.engine.phase,
       revealed: revealed,
       countdown: provider.turnSecondsLeft,
+      compact: widget.compact,
       onTap: revealed ? () => _showRevealedHand(context, player) : null,
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final engine = provider.engine;
-    final left = engine.players[2];
-    final right = engine.players[1];
-    if (landscape) {
-      return Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: _SeatColumn(
-              seat: _seatPanel(context, provider, left),
-              compact: compact,
-            ),
-          ),
-          Expanded(
-            flex: 6,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: RepaintBoundary(
-                    child: PlayField(provider: provider, landscape: true),
-                  ),
-                ),
-                StatusInfo(provider: provider),
-                const SizedBox(height: 2),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: _SeatColumn(
-              seat: _seatPanel(context, provider, right),
-              compact: compact,
-            ),
-          ),
-        ],
-      );
-    }
+  Widget _pile(
+    GameProvider provider,
+    PlayerState player,
+    double cardWidth,
+    double maxWidth,
+  ) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          height: compact ? 104 : 112,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 10, top: 2),
-                child: _seatPanel(context, provider, left),
-              ),
-              const Spacer(),
-              Padding(
-                padding: const EdgeInsets.only(right: 10, top: 2),
-                child: _seatPanel(context, provider, right),
-              ),
-            ],
-          ),
+        PileLabel(
+          player: player,
+          highlight: provider.engine.lastPlayer == player.id,
         ),
-        Expanded(
-          child: RepaintBoundary(
-            child: PlayField(provider: provider, landscape: false),
-          ),
-        ),
-        StatusInfo(provider: provider),
-        const SizedBox(height: 2),
-      ],
-    );
-  }
-}
-
-class _SeatColumn extends StatelessWidget {
-  const _SeatColumn({required this.seat, required this.compact});
-
-  final SeatPanel seat;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Center(
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: compact ? 2 : 8),
-            child: seat,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 三家出牌区：中间为玩家，两侧为两名 AI，牌面比旧版更大。
-class PlayField extends StatelessWidget {
-  const PlayField({super.key, required this.provider, required this.landscape});
-
-  final GameProvider provider;
-  final bool landscape;
-
-  @override
-  Widget build(BuildContext context) {
-    final engine = provider.engine;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columnWidth = constraints.maxWidth / 3;
-        final cardWidth = landscape ? 40.0 : 33.0;
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            for (final id in const [2, 0, 1])
-              Expanded(
-                child: _PileColumn(
-                  player: engine.players[id],
-                  maxWidth: columnWidth - 10,
-                  cardWidth: cardWidth,
-                  highlight: engine.lastPlayer == id,
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _PileColumn extends StatelessWidget {
-  const _PileColumn({
-    required this.player,
-    required this.maxWidth,
-    required this.cardWidth,
-    required this.highlight,
-  });
-
-  final PlayerState player;
-  final double maxWidth;
-  final double cardWidth;
-  final bool highlight;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  player.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: highlight
-                        ? kGoldSoft
-                        : Colors.white.withValues(alpha: 0.62),
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              if (player.isLandlord) ...[
-                const SizedBox(width: 3),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: kGold.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    '地主',
-                    style: TextStyle(
-                      color: Color(0xFF3A2606),
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 3),
-          PlayedCardsView(
+        const SizedBox(height: 3),
+        KeyedSubtree(
+          key: _pileKeys[player.id],
+          child: PlayedCardsView(
             cards: player.lastPlay,
             combo: player.lastCombo,
             passed: player.lastPassed,
             maxWidth: maxWidth,
             cardWidth: cardWidth,
           ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reportPileCenters());
+    final provider = widget.provider;
+    final engine = provider.engine;
+    final left = engine.players[2];
+    final right = engine.players[1];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        // 牌面随牌桌宽度放大：大窗口下也保持清晰可辨。
+        final cardWidth = (width / 16).clamp(34.0, 64.0);
+        final sideWidth = width * 0.3 - 18;
+        final centerWidth = width * 0.4 - 18;
+
+        final leftPile = _pile(provider, left, cardWidth, sideWidth);
+        final rightPile = _pile(provider, right, cardWidth, sideWidth);
+        final humanPile = _pile(
+          provider,
+          engine.players[0],
+          cardWidth,
+          centerWidth,
+        );
+
+        if (widget.landscape) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 3,
+                child: _SideColumn(
+                  seat: _seatPanel(context, provider, left),
+                  pile: leftPile,
+                  compact: widget.compact,
+                ),
+              ),
+              Expanded(
+                flex: 4,
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Center(child: StatusInfo(provider: provider)),
+                    ),
+                    FittedBox(fit: BoxFit.scaleDown, child: humanPile),
+                    const SizedBox(height: 2),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: _SideColumn(
+                  seat: _seatPanel(context, provider, right),
+                  pile: rightPile,
+                  compact: widget.compact,
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Column(
+          children: [
+            SizedBox(
+              height: widget.compact ? 60 : 106,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 10, top: 2),
+                    child: _scaledSeat(_seatPanel(context, provider, left)),
+                  ),
+                  const Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 10, top: 2),
+                    child: _scaledSeat(_seatPanel(context, provider, right)),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: FittedBox(fit: BoxFit.scaleDown, child: leftPile),
+                  ),
+                  Expanded(
+                    flex: 4,
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: Center(child: StatusInfo(provider: provider)),
+                        ),
+                        FittedBox(fit: BoxFit.scaleDown, child: humanPile),
+                        const SizedBox(height: 2),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: FittedBox(fit: BoxFit.scaleDown, child: rightPile),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _scaledSeat(Widget seat) {
+    return FittedBox(fit: BoxFit.scaleDown, child: seat);
+  }
+}
+
+/// 侧边座位：座位信息在上，出牌区紧随其下，形成牌桌左上 / 右上的一角。
+class _SideColumn extends StatelessWidget {
+  const _SideColumn({
+    required this.seat,
+    required this.pile,
+    required this.compact,
+  });
+
+  final Widget seat;
+  final Widget pile;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Column(
+        children: [
+          const SizedBox(height: 2),
+          // 座位只占牌桌上方一小条，剩下的空间留给放大的出牌区。
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: compact ? 42 : 110),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: compact ? 0 : 4),
+                child: seat,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: FittedBox(fit: BoxFit.scaleDown, child: pile),
+            ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// 出牌区上方的小标签：谁出的牌、是否是上一手。
+class PileLabel extends StatelessWidget {
+  const PileLabel({super.key, required this.player, this.highlight = false});
+
+  final PlayerState player;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            player.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: highlight
+                  ? kGoldSoft
+                  : Colors.white.withValues(alpha: 0.62),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        if (player.isLandlord) ...[
+          const SizedBox(width: 3),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: kGold.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Text(
+              '地主',
+              style: TextStyle(
+                color: Color(0xFF3A2606),
+                fontSize: 8,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -356,35 +419,39 @@ class StatusInfo extends StatelessWidget {
     final landlord = provider.engine.landlord;
     final aiRevealed =
         provider.engine.revealed && landlord != null && landlord != 0;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TurnChip(text: provider.turnHint),
-        if (aiRevealed) ...[
-          const SizedBox(height: 3),
-          Text(
-            '地主已明牌 · 点击其座位查看手牌',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: kGoldSoft.withValues(alpha: 0.8),
-              fontSize: 9.5,
+    // 牌桌高度有限时整体等比缩小，避免提示文字把牌桌撑破。
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TurnChip(text: provider.turnHint),
+          if (aiRevealed) ...[
+            const SizedBox(height: 3),
+            Text(
+              '地主已明牌 · 点击其座位查看手牌',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: kGoldSoft.withValues(alpha: 0.8),
+                fontSize: 9.5,
+              ),
             ),
-          ),
-        ],
-        if (action != null && provider.phase != GamePhase.finished) ...[
-          const SizedBox(height: 2),
-          Text(
-            action,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.42),
-              fontSize: 10,
+          ],
+          if (action != null && provider.phase != GamePhase.finished) ...[
+            const SizedBox(height: 2),
+            Text(
+              action,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.42),
+                fontSize: 10,
+              ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

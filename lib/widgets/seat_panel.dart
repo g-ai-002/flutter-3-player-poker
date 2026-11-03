@@ -16,6 +16,7 @@ class SeatPanel extends StatelessWidget {
     this.revealed = false,
     this.onTap,
     this.countdown,
+    this.compact = false,
   });
 
   final PlayerState player;
@@ -29,6 +30,9 @@ class SeatPanel extends StatelessWidget {
 
   /// 出牌阶段的回合倒计时；只在该玩家回合展示。
   final ValueListenable<int>? countdown;
+
+  /// 手机横屏等矮屏使用单行紧凑样式，把高度留给放大的出牌区。
+  final bool compact;
 
   String get _status {
     if (thinking) return '思考中…';
@@ -46,6 +50,7 @@ class SeatPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = _status;
+    if (compact) return _buildCompact(status);
     return GestureDetector(
       onTap: revealed ? onTap : null,
       child: Container(
@@ -183,6 +188,102 @@ class SeatPanel extends StatelessWidget {
                   ),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 矮屏单行座位：头像 + 名字 / 手牌数 + 状态，高度约 34。
+  Widget _buildCompact(String status) {
+    return GestureDetector(
+      onTap: revealed ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.22),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isCurrent
+                ? kGold.withValues(alpha: 0.85)
+                : Colors.white.withValues(alpha: 0.08),
+            width: isCurrent ? 1.4 : 0.8,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: player.isLandlord
+                      ? const [Color(0xFFE0B45F), Color(0xFF9A6B20)]
+                      : const [Color(0xFF3E7A5B), Color(0xFF1B3E2B)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+              ),
+              child: Center(
+                child: Text(
+                  player.name.substring(0, 1),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 5),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      player.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (player.isLandlord) ...[
+                      const SizedBox(width: 3),
+                      const _SeatBadge(
+                        text: '地主',
+                        background: kGold,
+                        foreground: Color(0xFF3A2606),
+                        borderColor: Color(0xFF5A3D0C),
+                      ),
+                    ],
+                    if (revealed) ...[
+                      const SizedBox(width: 3),
+                      const _SeatBadge(
+                        text: '明牌',
+                        background: Color(0xFF2C4A38),
+                        foreground: kGoldSoft,
+                        borderColor: kGold,
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  '${player.hand.length} 张 · $status',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontSize: 9,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

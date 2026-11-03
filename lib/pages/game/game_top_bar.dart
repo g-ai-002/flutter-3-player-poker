@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../game/card_counter.dart';
 import '../../providers/game_provider.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/card_counter_panel.dart';
 import '../rules_page.dart';
 
 /// 牌桌顶栏：返回、地主信息、当前倍数与更多菜单。
@@ -13,11 +11,17 @@ class GameTopBar extends StatelessWidget {
     super.key,
     required this.onBack,
     required this.onRestart,
+    required this.counterOpen,
+    required this.onToggleCounter,
     this.compact = false,
   });
 
   final VoidCallback onBack;
   final VoidCallback onRestart;
+
+  /// 记牌器浮层是否常驻显示。
+  final bool counterOpen;
+  final VoidCallback onToggleCounter;
   final bool compact;
 
   static const TextStyle _menuText = TextStyle(
@@ -25,98 +29,6 @@ class GameTopBar extends StatelessWidget {
     fontSize: 13,
     fontWeight: FontWeight.w500,
   );
-
-  /// 记牌器：顶部浮层展示两家剩余的牌，不遮挡手牌与操作条。
-  Future<void> _showCounter(BuildContext context, GameProvider provider) {
-    return showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: '关闭记牌器',
-      barrierColor: Colors.black.withValues(alpha: 0.28),
-      transitionDuration: const Duration(milliseconds: 160),
-      transitionBuilder: (context, animation, _, child) {
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-        );
-        return FadeTransition(
-          opacity: curved,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, -0.08),
-              end: Offset.zero,
-            ).animate(curved),
-            child: child,
-          ),
-        );
-      },
-      pageBuilder: (context, _, _) => Align(
-        alignment: Alignment.topCenter,
-        child: Padding(
-          padding: EdgeInsets.only(
-            top: MediaQuery.paddingOf(context).top + 56,
-            left: 14,
-            right: 14,
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF12301F),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: kGold.withValues(alpha: 0.32)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.35),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            '记牌器 · 两家剩余',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: '关闭记牌器',
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close, size: 18),
-                          color: Colors.white.withValues(alpha: 0.7),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    ListenableBuilder(
-                      listenable: provider,
-                      builder: (context, _) => CardCounterPanel(
-                        counts: CardCounter.remaining(provider.engine),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -165,10 +77,15 @@ class GameTopBar extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: '记牌器',
-            onPressed: () => _showCounter(context, provider),
-            icon: const Icon(Icons.visibility_outlined, size: 18),
-            color: Colors.white.withValues(alpha: 0.7),
+            tooltip: counterOpen ? '隐藏记牌器' : '记牌器',
+            onPressed: onToggleCounter,
+            icon: Icon(
+              counterOpen ? Icons.visibility : Icons.visibility_outlined,
+              size: 18,
+            ),
+            color: counterOpen
+                ? kGoldSoft
+                : Colors.white.withValues(alpha: 0.7),
             constraints: compact
                 ? const BoxConstraints.tightFor(width: 34, height: 40)
                 : null,

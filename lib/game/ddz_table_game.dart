@@ -39,6 +39,15 @@ class DdzTableGame extends FlameGame {
     super.onRemove();
   }
 
+  /// 三家出牌区的相对坐标，由 Flutter 布局回传；未回传前使用经验位置。
+  final Map<int, Offset> _pileAnchors = {};
+
+  void setPileAnchors(Map<int, Offset> anchors) {
+    _pileAnchors
+      ..clear()
+      ..addAll(anchors);
+  }
+
   Offset seatPoint(int player) {
     return switch (player) {
       1 => Offset(size.x * 0.86, size.y * 0.26),
@@ -47,11 +56,16 @@ class DdzTableGame extends FlameGame {
     };
   }
 
+  /// 飞牌落点：优先使用布局回传的真实出牌区中心。
   Offset pilePoint(int player) {
+    final anchor = _pileAnchors[player];
+    if (anchor != null) {
+      return Offset(anchor.dx * size.x, anchor.dy * size.y);
+    }
     return switch (player) {
-      1 => Offset(size.x * 0.66, size.y * 0.47),
-      2 => Offset(size.x * 0.34, size.y * 0.47),
-      _ => Offset(size.x * 0.5, size.y * 0.66),
+      1 => Offset(size.x * 0.82, size.y * 0.34),
+      2 => Offset(size.x * 0.18, size.y * 0.34),
+      _ => Offset(size.x * 0.5, size.y * 0.74),
     };
   }
 
@@ -61,12 +75,13 @@ class DdzTableGame extends FlameGame {
         _playDeal();
       case TableEventType.play:
         final cards = event.cards.take(kIsWeb ? 6 : 8).toList();
+        final target = pilePoint(event.player) - const Offset(0, 6);
         for (var i = 0; i < cards.length; i++) {
           add(
             CardFlight(
               card: cards[i],
               from: seatPoint(event.player),
-              to: pilePoint(event.player) + Offset(i * 10, -i * 2),
+              to: target + Offset(i * 10, -i * 2),
               delay: i * 0.035,
               duration: 0.32,
             ),

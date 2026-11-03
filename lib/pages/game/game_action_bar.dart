@@ -5,7 +5,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/hand_view.dart';
 import '../../widgets/turn_countdown.dart';
 
-/// 底部操作条：选中牌型说明、提示 / 不出 / 出牌。
+/// 底部操作条：牌型说明在左，提示 / 不出 / 出牌三个按钮居中。
 class GameActionBar extends StatelessWidget {
   const GameActionBar({super.key, required this.provider});
 
@@ -17,72 +17,96 @@ class GameActionBar extends StatelessWidget {
     final label = provider.selectedCards.isEmpty
         ? '请选择要出的牌'
         : selected?.description ?? '牌型不合法';
+    final empty = provider.selectedCards.isEmpty;
+    final labelText = Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.right,
+      style: TextStyle(
+        color: empty ? Colors.white.withValues(alpha: 0.55) : kGoldSoft,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    final buttons = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ActionButton(
+          label: '提示',
+          onPressed: provider.isHumanTurn ? provider.hint : null,
+          outlined: true,
+        ),
+        const SizedBox(width: 6),
+        _ActionButton(
+          label: '不出',
+          onPressed: provider.canPass ? provider.pass : null,
+          outlined: true,
+        ),
+        const SizedBox(width: 6),
+        _ActionButton(
+          label: '出牌',
+          onPressed: provider.canPlay ? provider.playSelected : null,
+        ),
+      ],
+    );
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 窄屏放不下「倒计时 + 说明 + 按钮」一行：说明单独占一行。
+          if (constraints.maxWidth < 520) {
+            return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: provider.selectedCards.isEmpty
-                        ? Colors.white.withValues(alpha: 0.55)
-                        : kGoldSoft,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+                SizedBox(
+                  width: double.infinity,
+                  child: Center(child: labelText),
                 ),
                 const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        provider.humanIsLandlord
-                            ? '地主 · ${provider.humanHand.length} 张'
-                            : '农民 · ${provider.humanHand.length} 张',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.4),
-                          fontSize: 10,
+                SizedBox(height: 38, child: buttons),
+              ],
+            );
+          }
+          return SizedBox(
+            height: 38,
+            child: Row(
+              children: [
+                // 左侧留白与右侧 Spacer 对称，保证三个按钮始终居中。
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (provider.isHumanTurn) ...[
+                          TurnCountdown(
+                            seconds: provider.turnSecondsLeft,
+                            compact: true,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Flexible(child: labelText),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${provider.humanHand.length} 张',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.4),
+                            fontSize: 10,
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                    if (provider.isHumanTurn) ...[
-                      const SizedBox(width: 6),
-                      TurnCountdown(
-                        seconds: provider.turnSecondsLeft,
-                        compact: true,
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
+                const SizedBox(width: 10),
+                buttons,
+                const Spacer(),
               ],
             ),
-          ),
-          _ActionButton(
-            label: '提示',
-            onPressed: provider.isHumanTurn ? provider.hint : null,
-            outlined: true,
-          ),
-          const SizedBox(width: 4),
-          _ActionButton(
-            label: '不出',
-            onPressed: provider.canPass ? provider.pass : null,
-            outlined: true,
-          ),
-          const SizedBox(width: 4),
-          _ActionButton(
-            label: '出牌',
-            onPressed: provider.canPlay ? provider.playSelected : null,
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -106,8 +130,7 @@ class _ActionButton extends StatelessWidget {
             onPressed: onPressed,
             style: tableGhostButtonStyle(
               enabled: onPressed != null,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              fontSize: 12,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               foreground: Colors.white,
             ),
             child: Text(label),

@@ -159,18 +159,29 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.text('记牌器 · 两家剩余'), findsNothing);
 
+    final barriers = find.byType(ModalBarrier).evaluate().length;
     await tester.tap(find.byTooltip('记牌器'));
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
     expect(find.text('记牌器 · 两家剩余'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('记牌器 · 两家剩余')).dy,
-      lessThan(120),
+      lessThan(140),
       reason: '记牌器应浮在牌桌上方而不是底部弹出',
     );
     expect(find.byType(BottomSheet), findsNothing);
+    expect(
+      find.byType(ModalBarrier).evaluate().length,
+      barriers,
+      reason: '常驻浮层不应该新增遮罩挡住宿主操作',
+    );
 
-    await tester.tapAt(const Offset(8, 8));
-    await tester.pump(const Duration(milliseconds: 400));
+    // 点击牌桌其他位置不会收起，只有关闭按钮能关掉。
+    await tester.tapAt(const Offset(8, 320));
+    await tester.pump();
+    expect(find.text('记牌器 · 两家剩余'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('关闭记牌器'));
+    await tester.pump();
     expect(find.text('记牌器 · 两家剩余'), findsNothing);
   });
 
@@ -203,6 +214,80 @@ void main() {
 
     game.stop();
     await tester.pump();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('三家出牌区呈三足鼎立并贴住牌桌两侧', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+    addTearDown(game.dispose);
+    game.newGame();
+    takeLandlord(game);
+
+    tester.view.physicalSize = const Size(780, 360);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    // 树序：左家 2、玩家 0、右家 1。
+    final rects = [
+      for (var i = 0; i < 3; i++)
+        tester.getRect(find.byType(PlayedCardsView).at(i)),
+    ];
+    expect(rects[0].center.dx, lessThan(rects[1].center.dx));
+    expect(rects[1].center.dx, lessThan(rects[2].center.dx));
+    expect(rects[0].center.dy, lessThan(rects[1].center.dy));
+    expect(rects[2].center.dy, lessThan(rects[1].center.dy));
+    expect(
+      (rects[1].center.dx - 390).abs(),
+      lessThan(24),
+      reason: '玩家出牌区应在牌桌正中',
+    );
+
+    game.stop();
+    await tester.pump();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('提示 / 不出 / 出牌按钮居中排列', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+    addTearDown(game.dispose);
+    game.newGame();
+    takeLandlord(game);
+
+    tester.view.physicalSize = const Size(780, 360);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final passCenter = tester.getCenter(find.text('不出'));
+    expect((passCenter.dx - 390).abs(), lessThan(24), reason: '按钮组应位于屏幕下方中间');
+    final label = tester.getCenter(find.text('请选择要出的牌'));
+    expect(label.dx, lessThan(passCenter.dx), reason: '牌型说明在按钮左侧');
+
+    game.stop();
+    await tester.pump();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('设置页在大屏限制最大内容宽度', (tester) async {
+    final settings = await makeSettings();
+    tester.view.physicalSize = const Size(1600, 900);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(wrapApp(const SettingsPage(), settings: settings));
+    await tester.pump();
+
+    final width = tester.getSize(find.byType(ListView)).width;
+    expect(width, lessThanOrEqualTo(760));
+
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
   });

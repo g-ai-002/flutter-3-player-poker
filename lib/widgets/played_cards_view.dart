@@ -33,7 +33,8 @@ class PlayedCardsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (cards.isEmpty) {
-      if (!passed) return const SizedBox(height: 44);
+      // 空出牌区也占住整列宽度，飞牌动画与三足鼎立布局都以它为准。
+      if (!passed) return SizedBox(width: maxWidth, height: cardWidth * 1.4);
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
