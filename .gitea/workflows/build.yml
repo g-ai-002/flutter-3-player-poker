@@ -242,20 +242,46 @@ jobs:
           name: ${{ env.APP_NAME }}-${{ needs.metadata.outputs.app_version }}-windows-x86_64.zip
           path: C:/w/${{ env.APP_NAME }}-${{ needs.metadata.outputs.app_version }}-windows-x86_64.zip
 
-  # Gitea 没有 Pages，Web 产物只打包成 ZIP 归档到 Release
+  # ========== 🌐 构建 Flutter Web：tag 发正式版本，其余触发发 debug 预览 ==========
   build-web:
     needs: [ metadata, test ]
     runs-on: ubuntu-flutter
-    name: 🌐 构建 Web 产物
+    name: 🌐 构建 Web 并发布 Pages
     permissions:
-      contents: read
+      contents: write  # ✅ 需要向 tea-pages 分支推送站点
     timeout-minutes: 30
+    concurrency:
+      group: pages-${{ github.event.repository.name }}
+      cancel-in-progress: false  # ✅ 串行写 tea-pages，避免并发覆盖
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v6
 
       - name: 📦 安装依赖
         run: flutter pub get
+
+      - name: 🧭 计算发布路径
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "VERSION_PATH=v${{ needs.metadata.outputs.app_version }}" >> "$GITHUB_ENV"
+            echo "IS_RELEASE=true" >> "$GITHUB_ENV"
+            echo "📦 发布路径: v${{ needs.metadata.outputs.app_version }}"
+          else
+            echo "VERSION_PATH=debug" >> "$GITHUB_ENV"
+            echo "IS_RELEASE=false" >> "$GITHUB_ENV"
+            echo "🧪 预览路径: debug"
+          fi
+
+      - name: 🔑 准备站点推送地址
+        shell: bash
+        run: |
+          set -euo pipefail
+          push_url=$(printf '%s' "${{ github.server_url }}/${{ github.repository }}.git" \
+            | sed -E 's#^(https?)://#\1://oauth2:${{ secrets.GITEA_TOKEN }}@#')
+          echo "PUSH_URL=$push_url" >> "$GITHUB_ENV"
+          echo "📌 站点推送地址: $(printf '%s' "$push_url" | sed -E 's#//[^@]*@#//***@#')"
 
       - name: 🌐 生成并汉化 Web 平台文件
         run: |
@@ -315,6 +341,177 @@ jobs:
         with:
           name: ${{ env.APP_NAME }}-${{ needs.metadata.outputs.app_version }}-web.zip
           path: ${{ env.APP_NAME }}-${{ needs.metadata.outputs.app_version }}-web.zip
+
+      - name: 📚 检出 tea-pages 站点分支
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "gitea-actions[bot]"
+          git config user.email "gitea-actions[bot]@noreply.localhost"
+
+          if ! git ls-remote --exit-code --heads "$PUSH_URL" tea-pages > /dev/null 2>&1; then
+            echo "ℹ️ tea-pages 分支不存在，用空孤儿提交初始化"
+            empty_tree=$(git mktree < /dev/null)
+            init_commit=$(git commit-tree "$empty_tree" -m "🌐 初始化 Gitea Pages")
+            git push "$PUSH_URL" "$init_commit:refs/heads/tea-pages"
+          fi
+
+          # 站点分支每次都是强推的单提交，refspec 前缀 + 让本地已有的引用也能被覆盖
+          git fetch --no-tags --depth=2 "$PUSH_URL" +tea-pages:refs/remotes/origin/tea-pages
+          git worktree add --detach pages refs/remotes/origin/tea-pages
+          echo "📂 站点现有版本目录："
+          find pages -maxdepth 1 -mindepth 1 -type d -name 'v*' -printf '  📁 %f\n' | sort -V || true
+
+      - name: 🗂️ 写入站点目录
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "pages/${VERSION_PATH}"
+          mkdir -p "pages/${VERSION_PATH}"
+          cp -a build/web/. "pages/${VERSION_PATH}/"
+          touch pages/.nojekyll
+          echo "✅ 已写入 pages/${VERSION_PATH}"
+          du -sh "pages/${VERSION_PATH}"
+
+      - name: 🧹 清理过期版本（只留最近 3 个 MINOR）
+        shell: bash
+        run: |
+          set -euo pipefail
+          keep_minors=3
+          mapfile -t versions_all < <(find pages -maxdepth 1 -mindepth 1 -type d -name 'v*' -printf '%f\n' | sort -V -r)
+          declare -A minor_taken=()
+          kept=()
+          for v in "${versions_all[@]}"; do
+            minor="${v#v}"
+            minor="${minor%.*}"
+            if [ -n "${minor_taken[$minor]:-}" ]; then
+              echo "🗑️ 同一 MINOR 的旧版本：$v"
+              continue
+            fi
+            if [ "${#minor_taken[@]}" -ge "$keep_minors" ]; then
+              echo "🗑️ 超出最近 ${keep_minors} 个 MINOR：$v"
+              continue
+            fi
+            minor_taken[$minor]="$v"
+            kept+=("$v")
+          done
+          for v in "${versions_all[@]}"; do
+            if [[ " ${kept[*]} " != *" $v "* ]]; then
+              rm -rf "pages/$v"
+            fi
+          done
+          # 本次刚发布的版本不能被清掉
+          if [[ "$VERSION_PATH" == v* ]] && [ ! -d "pages/$VERSION_PATH" ]; then
+            echo "❌ 本次发布的 $VERSION_PATH 被误删"
+            exit 1
+          fi
+          echo "📁 保留版本：${kept[*]:-无}"
+          du -sh pages
+
+      - name: 🏠 生成版本索引页
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t versions < <(find pages -maxdepth 1 -mindepth 1 -type d -name 'v*' -printf '%f\n' | sort -V -r)
+          has_debug=false
+          if [ -d pages/debug ]; then has_debug=true; fi
+          if [ "${#versions[@]}" -eq 0 ] && [ "$has_debug" != true ]; then
+            echo "❌ 站点里既没有版本目录也没有 debug 目录"
+            exit 1
+          fi
+          latest="${versions[0]:-}"
+          app_title=$(grep '^description:' pubspec.yaml | sed -E 's/^description:[[:space:]]*//; s/[[:space:]]*-.*$//')
+          now=$(date -u '+%Y-%m-%d %H:%M UTC')
+          echo "📌 正式版本 ${#versions[@]} 个（最新 ${latest:-无}），debug 预览: ${has_debug}"
+
+          : > /tmp/latest.html
+          if [ -n "$latest" ]; then
+            printf '    <a class="hero" href="./%s/">\n      <span class="hero-label">最新正式版本</span>\n      <span class="hero-ver">%s</span>\n      <span class="hero-go">▶ 立即开始游戏</span>\n    </a>\n' \
+              "$latest" "$latest" >> /tmp/latest.html
+          elif [ "$has_debug" = true ]; then
+            printf '    <a class="hero" href="./debug/">\n      <span class="hero-label">暂无正式版本 · 先玩调试版</span>\n      <span class="hero-ver">debug</span>\n      <span class="hero-go">▶ 立即开始游戏</span>\n    </a>\n' \
+              >> /tmp/latest.html
+          fi
+
+          : > /tmp/release-items.html
+          for i in "${!versions[@]}"; do
+            v="${versions[$i]}"
+            badge=""
+            if [ "$i" -eq 0 ]; then badge='<span class="badge">最新</span>'; fi
+            printf '        <a class="card" href="./%s/"><span class="ver">%s%s</span><span class="go">进入试玩 →</span></a>\n' \
+              "$v" "$v" "$badge" >> /tmp/release-items.html
+          done
+          if [ "${#versions[@]}" -eq 0 ]; then
+            printf '        <p class="empty">暂无正式版本</p>\n' >> /tmp/release-items.html
+          fi
+
+          : > /tmp/debug-items.html
+          if [ "$has_debug" = true ]; then
+            printf '        <a class="card" href="./debug/"><span class="ver">debug<span class="badge badge-debug">预览</span></span><span class="go">最新一次构建 →</span></a>\n' \
+              >> /tmp/debug-items.html
+          else
+            printf '        <p class="empty">暂无调试版本</p>\n' >> /tmp/debug-items.html
+          fi
+
+          awk -v title="$app_title" -v repo="${{ github.event.repository.name }}" -v updated="$now" \
+              -v latest="/tmp/latest.html" -v releases="/tmp/release-items.html" -v debugf="/tmp/debug-items.html" '
+            /__LATEST__/ {
+              while ((getline line < latest) > 0) print line;
+              close(latest);
+              next
+            }
+            /__RELEASES__/ {
+              while ((getline line < releases) > 0) print line;
+              close(releases);
+              next
+            }
+            /__DEBUG__/ {
+              while ((getline line < debugf) > 0) print line;
+              close(debugf);
+              next
+            }
+            { gsub(/__TITLE__/, title); gsub(/__REPO__/, repo); gsub(/__UPDATED__/, updated); print }
+          ' .github/pages/index.template.html > pages/index.html
+
+          : > /tmp/versions.jsonl
+          if [ "$has_debug" = true ]; then
+            printf '{"version":"debug","url":"./debug/","latest":false,"debug":true}\n' >> /tmp/versions.jsonl
+          fi
+          for i in "${!versions[@]}"; do
+            v="${versions[$i]}"
+            is_latest=false
+            if [ "$i" -eq 0 ]; then is_latest=true; fi
+            jq -cn --arg v "$v" --argjson latest "$is_latest" \
+              '{version: $v, url: ("./" + $v + "/"), latest: $latest, debug: false}' >> /tmp/versions.jsonl
+          done
+          jq -s . /tmp/versions.jsonl > pages/versions.json
+
+          echo "--- 📄 versions.json ---"
+          cat pages/versions.json
+
+      - name: 🚀 提交并推送站点（历史压缩为单次提交）
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd pages
+          git add -A
+          # 内容没变、且远端历史已经是单次提交时才跳过
+          if git diff --cached --quiet && [ "$(git rev-list --count HEAD)" -eq 1 ]; then
+            echo "ℹ️ 站点内容无变化，跳过提交"
+            exit 0
+          fi
+          if [ "$IS_RELEASE" = true ]; then
+            msg="🌐 发布 Web 版本 ${VERSION_PATH}"
+          else
+            msg="🧪 更新 Web 预览站点 ${VERSION_PATH}"
+          fi
+          # 每次发布都用当前索引生成一个无父提交并强推：tea-pages 永远只有一次提交，
+          # 不再累积历次构建产物，clone / fetch 会快很多。
+          tree=$(git write-tree)
+          commit=$(git commit-tree "$tree" -m "$msg")
+          git push --force "$PUSH_URL" "$commit:refs/heads/tea-pages"
+          echo "✅ 已推送到 tea-pages（单次提交，历史已压缩）"
+          echo "🔗 ${{ github.server_url }}/${{ github.repository }}/src/branch/tea-pages/${VERSION_PATH}/"
 
   release:
     needs: [ metadata, build-android, build-windows, build-web ]
