@@ -483,7 +483,7 @@ jobs:
             printf '        <p class="empty">暂无调试版本</p>\n' >> /tmp/debug-items.html
           fi
 
-          awk -v title="$app_title" -v repo="${{ github.repository }}" -v updated="$now" \
+          awk -v title="$app_title" -v repo="${{ github.event.repository.name }}" -v updated="$now" \
               -v latest="/tmp/latest.html" -v releases="/tmp/release-items.html" -v debugf="/tmp/debug-items.html" '
             /__LATEST__/ {
               while ((getline line < latest) > 0) print line;
