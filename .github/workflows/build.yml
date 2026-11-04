@@ -339,7 +339,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          flutter build web --release --base-href "/${{ env.APP_NAME }}/${VERSION_PATH}/"
+          # 不传 --base-href，产物全部走相对路径
+          flutter build web --release
+
+          # Flutter 默认写入 <base href="/">，资源会按域名根路径请求，只能部署在站点根目录。
+          # 删掉该标签后浏览器以页面自身地址为基准解析，产物放到服务器任意目录都能跑。
+          sed -i -E 's|<base[[:space:]]+href="[^"]*"[[:space:]]*/?>||g' build/web/index.html
+          sed -i -E '/^[[:space:]]*$/d' build/web/index.html
+          if grep -qi '<base[[:space:]]' build/web/index.html; then
+            echo "❌ base 标签清理失败"
+            exit 1
+          fi
+          grep -n 'flutter_bootstrap.js' build/web/index.html
           du -sh build/web
 
       - name: 🗜️ 打包 Web 产物
