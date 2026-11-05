@@ -15,11 +15,11 @@
 - 严格禁止下载安装开发工具, 编译工具, SDK等大文件, 会导致任务执行时间不可控
 - `gh`和`tea`命令必须在代码仓目录下执行
 - 首个版本号必须从0.1.0开始
-- 0.1.0版本的开发必须参考示例代码 http://192.168.31.120:3020/GitHub-g-ai-002/flutter-snake/archive/main.zip 来搭建项目基础框架,
+- 0.1.0版本的开发必须参考示例代码
+  `flutter-chinese-chess` http://192.168.31.120:3020/GTech/flutter-chinese-chess/archive/main.zip 来搭建项目基础框架,
   大于0.1.0版本的开发则不用再参考
-- GitHub Actions和Gitea
-  Actions工作流以及构建配置必须与参考示例代码 http://192.168.31.120:3020/GitHub-g-ai-002/flutter-snake/archive/main.zip
-  保持严格对齐
+- GitHub Actions和Gitea Actions工作流以及构建配置必须与参考示例代码`flutter-chinese-chess`保持严格对齐
+- `flutter-chinese-chess`是优秀的示例代码, 同类功能可以多参考
 
 # 开发流程
 
@@ -81,9 +81,10 @@
 - Windows系统优先使用`Microsoft YaHei UI`字体, Android系统优先使用系统默认字体, web版本使用此依赖字体解决方案
   `https://pub.dev/packages/soup_fonts`
 - 定位为本地应用, 禁止开发联网功能
-- 程序化生成音效与背景音乐
+- 程序化生成音效与背景音乐, 使用flutter_soloud播放音乐`https://pub.dev/packages/flutter_soloud`
 - 代码仓库禁止存放字体文件、音频文件、视频文件等大文件
 - 依赖组件使用固定版本号，禁止使用范围版本号
+- 提示信息使用浮层, 避免导致游戏主界面布局发生移位或变化
 
 # Git 提交规范
 
