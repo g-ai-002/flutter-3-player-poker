@@ -92,7 +92,7 @@ Web 端关闭浮尘、减少飞牌数量并缓存牌桌背景，动画更轻量�
 
 ### 环境要求
 
-- Flutter 3.47.8+（Dart 3.13.7+）
+- Flutter 3.47.9+（Dart 3.13.7+）
 - Android SDK 37（minSdk 35 / targetSdk 37 / compileSdk 37）
 - Windows 10+
 
