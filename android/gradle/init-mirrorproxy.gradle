@@ -13,7 +13,11 @@ if (useMirrorProxy) {
         settings.pluginManagement {
             repositories {
                 clear()
-                maven { url mirrorMaven }
+                maven {
+                    url mirrorMaven
+                    // 内网镜像只提供 HTTP，没有 TLS，Gradle 需显式允许不安全协议
+                    allowInsecureProtocol = true
+                }
                 mavenCentral()
                 google()
                 gradlePluginPortal()
@@ -22,7 +26,11 @@ if (useMirrorProxy) {
         settings.dependencyResolutionManagement {
             repositories {
                 clear()
-                maven { url mirrorMaven }
+                maven {
+                    url mirrorMaven
+                    // 内网镜像只提供 HTTP，没有 TLS，Gradle 需显式允许不安全协议
+                    allowInsecureProtocol = true
+                }
                 mavenCentral()
                 google()
             }
@@ -34,7 +42,11 @@ if (useMirrorProxy) {
         buildscript {
             repositories {
                 clear()
-                maven { url mirrorMaven }
+                maven {
+                    url mirrorMaven
+                    // 内网镜像只提供 HTTP，没有 TLS，Gradle 需显式允许不安全协议
+                    allowInsecureProtocol = true
+                }
                 mavenCentral()
                 google()
                 gradlePluginPortal()

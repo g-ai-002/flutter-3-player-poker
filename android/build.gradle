@@ -1,7 +1,10 @@
 allprojects {
     repositories {
         if (System.getenv('USE_MIRRORPROXY') == 'true') {
-            maven { url 'http://192.168.31.120:1001/maven/' }
+            maven {
+                url 'http://192.168.31.120:1001/maven/'
+                allowInsecureProtocol = true
+            }
         }
         mavenCentral()
         google()
