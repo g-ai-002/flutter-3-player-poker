@@ -197,8 +197,8 @@ class _GameTableAreaState extends State<GameTableArea> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        // 牌面随牌桌宽度放大：大窗口下也保持清晰可辨。
-        final cardWidth = (width / 16).clamp(34.0, 64.0);
+        // 牌面随牌桌宽度线性放大到 96 像素封顶，1440p / 4K 桌面不再显示偏小的牌。
+        final cardWidth = (width / 16).clamp(34.0, 96.0);
         final sideWidth = width * 0.3 - 18;
         final centerWidth = width * 0.4 - 18;
 

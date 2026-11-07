@@ -85,7 +85,15 @@ class _HandViewState extends State<HandView> {
         final baseWidth =
             widget.maxCardWidth ??
             (width > 900 ? 66.0 : (width > 600 ? 60.0 : 52.0));
-        final cardWidth = math.min(baseWidth, width / 3.1);
+        // 牌多而屏幕窄时按「每张至少露出 36% 牌宽」反推牌宽：
+        // 牌宽只跟宽度走的话，20 张手上 10 / J / Q 的角标会被下一张盖住。
+        final crowdWidth = cards.length <= 1
+            ? baseWidth
+            : width / (0.36 * (cards.length - 1) + 1);
+        final cardWidth = math.min(
+          baseWidth,
+          math.min(width / 3.1, crowdWidth),
+        );
         final spacing = cards.length == 1
             ? 0.0
             : math.min(
