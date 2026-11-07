@@ -127,6 +127,7 @@ void main() {
     await tester.tap(find.text('出牌'));
     await tester.pump(const Duration(milliseconds: 20));
     expect(game.humanHand.length, lessThan(20));
+    await tester.pump(const Duration(seconds: 4));
   });
 
   testWidgets('牌桌在手机竖屏与横屏均无溢出', (tester) async {
@@ -772,6 +773,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.text('轮到你叫分'), findsWidgets);
+    expect(find.textContaining('牌力'), findsOneWidget);
+    expect(find.textContaining('建议'), findsOneWidget);
     expect(find.text('不叫'), findsOneWidget);
     expect(find.text('1 分'), findsOneWidget);
     expect(find.text('2 分'), findsOneWidget);

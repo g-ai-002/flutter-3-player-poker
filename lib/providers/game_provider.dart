@@ -252,13 +252,39 @@ class GameProvider extends ChangeNotifier {
     driver.schedule();
   }
 
+  /// 叫分建议：轮到自己叫分时给出牌力评分与推荐分档。
+  String? get bidAdvice {
+    if (engine.phase != GamePhase.bidding || engine.currentPlayer != 0) {
+      return null;
+    }
+    final strength = ai.strengthOf(humanHand);
+    final score = ai.advisedBid(humanHand, engine.highestBid);
+    final action = score == 0 ? '建议不叫' : '建议叫 $score 分';
+    return '牌力 ${strength.toStringAsFixed(1)} · $action';
+  }
+
+  /// 残局提醒：对手只剩 1~2 张牌时给一句战术提示，队友不计入。
+  String? get endgameAlert {
+    if (engine.phase != GamePhase.playing) return null;
+    final humanIsLandlord = engine.players[0].isLandlord;
+    for (final player in engine.players.skip(1)) {
+      if (player.isLandlord == humanIsLandlord || player.hand.isEmpty) {
+        continue;
+      }
+      if (player.hand.length == 1) return '${player.name}只剩 1 张 · 出大牌压制';
+      if (player.hand.length == 2) return '${player.name}只剩 2 张 · 小心一手走完';
+    }
+    return null;
+  }
+
   void hint() {
     if (!engine.isHumanTurn) return;
     ai.level = settings.aiLevel;
-    final cards = ai.hint(engine);
+    final advice = ai.hintAdvice(engine);
+    final cards = advice.cards;
     if (cards == null) {
       _selectedIds.clear();
-      _showFeedback('没有能压过上家的牌，建议不出');
+      _showFeedback(advice.reason);
       return;
     }
     _selectedIds
@@ -267,6 +293,7 @@ class GameProvider extends ChangeNotifier {
     _feedbackTimer?.cancel();
     _feedback = null;
     notifyListeners();
+    _showFeedback(advice.reason, duration: const Duration(seconds: 4));
   }
 
   /// 状态变化的统一出口：同步回合倒计时，终局时写一次生涯统计。
@@ -323,11 +350,14 @@ class GameProvider extends ChangeNotifier {
     driver.schedule();
   }
 
-  void _showFeedback(String message) {
+  void _showFeedback(
+    String message, {
+    Duration duration = const Duration(milliseconds: 2200),
+  }) {
     _feedbackTimer?.cancel();
     _feedback = message;
     notifyListeners();
-    _feedbackTimer = Timer(const Duration(milliseconds: 2200), () {
+    _feedbackTimer = Timer(duration, () {
       _feedback = null;
       notifyListeners();
     });

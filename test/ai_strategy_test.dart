@@ -107,7 +107,7 @@ void main() {
         landlord: 0,
         hands: {0: '4 5 6 7 8 16 17', 1: '9 9', 2: '10 10'},
       );
-      final hint = AiPlayer(random: Random(2)).hint(engine)!;
+      final hint = AiPlayer(random: Random(2)).hintAdvice(engine).cards!;
       expect(hint.any((card) => card.isJoker), isFalse);
     });
 
@@ -118,7 +118,7 @@ void main() {
         lastRanks: '6',
         lastPlayer: 2,
       );
-      final hint = AiPlayer(random: Random(2)).hint(engine)!;
+      final hint = AiPlayer(random: Random(2)).hintAdvice(engine).cards!;
       expect(hint.single.rank, 7);
     });
 
@@ -129,9 +129,43 @@ void main() {
         lastRanks: '5',
         lastPlayer: 2,
       );
-      final hint = AiPlayer(random: Random(2)).hint(engine)!;
+      final hint = AiPlayer(random: Random(2)).hintAdvice(engine).cards!;
       expect(hint.length, 4);
       expect(detectCombo(hint)!.type.name, 'bomb');
+    });
+
+    test('跟牌提示附带最小压制的理由', () {
+      final engine = engineWith(
+        landlord: 0,
+        hands: {0: '7 9', 1: '8 8', 2: '5 6 10 10 10'},
+        lastRanks: '6',
+        lastPlayer: 2,
+      );
+      final advice = AiPlayer(random: Random(2)).hintAdvice(engine);
+      expect(advice.cards, isNotEmpty);
+      expect(advice.reason, contains('压过'));
+    });
+
+    test('领出提示说明剩余手数', () {
+      final engine = engineWith(
+        landlord: 0,
+        hands: {0: '3 4 5 6 7 9 9', 1: '8 8', 2: '5 6 10 10 10'},
+      );
+      final advice = AiPlayer(random: Random(2)).hintAdvice(engine);
+      expect(advice.cards, isNotEmpty);
+      expect(advice.reason, anyOf(contains('还剩'), contains('一手走完')));
+    });
+
+    test('无牌可压时提示不出并说明原因', () {
+      final engine = engineWith(
+        landlord: 0,
+        hands: {0: '3 4', 1: '8 8', 2: '2'},
+        lastRanks: '2',
+        lastPlayer: 2,
+      );
+      final advice = AiPlayer(random: Random(2)).hintAdvice(engine);
+      expect(advice.cards, isNull);
+      expect(advice.reason, contains('建议不出'));
     });
   });
 

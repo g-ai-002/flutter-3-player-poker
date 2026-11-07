@@ -143,6 +143,54 @@ void main() {
     expect(game.feedback, contains('建议不出'));
   });
 
+  test('叫分回合给出手牌牌力与叫分建议', () async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 0);
+    addTearDown(game.dispose);
+
+    game.newGame();
+    game.engine.currentPlayer = 0;
+    final advice = game.bidAdvice;
+    expect(advice, isNotNull);
+    expect(advice, contains('牌力'));
+    expect(advice, contains('建议'));
+    game.stop();
+  });
+
+  test('残局提醒只统计对手，不提醒队友', () async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 0);
+    addTearDown(game.dispose);
+
+    game.newGame();
+    takeLandlord(game);
+    final engine = game.engine;
+    engine.players[1].hand
+      ..clear()
+      ..addAll(handOf('3'));
+    engine.players[2].hand
+      ..clear()
+      ..addAll(handOf('4 5'));
+    expect(game.endgameAlert, contains('1 张'));
+
+    // 人类改成农民：另一名农民是队友，只剩一张也不该提醒。
+    engine.players[0].isLandlord = false;
+    engine.players[1].isLandlord = true;
+    engine.players[1].hand
+      ..clear()
+      ..addAll(handOf('6 7 8'));
+    engine.players[2].hand
+      ..clear()
+      ..addAll(handOf('9'));
+    expect(game.endgameAlert, isNull);
+
+    engine.players[1].hand
+      ..clear()
+      ..addAll(handOf('6 7'));
+    expect(game.endgameAlert, contains('2 张'));
+    game.stop();
+  });
+
   test('新建对局会应用设置中的 AI 难度', () async {
     final settings = await makeSettings();
     settings.setAiLevel(AiLevel.hard);

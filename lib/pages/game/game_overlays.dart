@@ -38,6 +38,16 @@ class BidOverlay extends StatelessWidget {
                 fontSize: 12,
               ),
             ),
+            if (provider.bidAdvice case final advice?) ...[
+              const SizedBox(height: 4),
+              Text(
+                advice,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 11,
+                ),
+              ),
+            ],
             const SizedBox(height: 6),
             Text(
               '叫 3 分直接成为地主；叫分最高者拿走 3 张底牌，以一敌二。',

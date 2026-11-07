@@ -29,9 +29,11 @@ class GameHints extends StatelessWidget {
         ? selection
         : engine.lastActionText;
     final landlord = engine.landlord;
-    final revealedHint = engine.revealed && landlord != null && landlord != 0
-        ? '地主已明牌 · 点击其座位查看手牌'
-        : null;
+    final alert =
+        provider.endgameAlert ??
+        (engine.revealed && landlord != null && landlord != 0
+            ? '地主已明牌 · 点击其座位查看手牌'
+            : null);
     final feedback = provider.feedback;
 
     return IgnorePointer(
@@ -42,47 +44,15 @@ class GameHints extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                height: 24,
-                child: Center(child: TurnChip(text: provider.turnHint)),
+              _slot(24, TurnChip(text: provider.turnHint)),
+              _slot(
+                18,
+                _caption(action, 10, Colors.white.withValues(alpha: 0.5)),
               ),
-              SizedBox(
-                height: 18,
-                child: action == null
-                    ? null
-                    : Center(
-                        child: Text(
-                          action,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5),
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
-              ),
-              SizedBox(
-                height: 16,
-                child: revealedHint == null
-                    ? null
-                    : Center(
-                        child: Text(
-                          revealedHint,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: kGoldSoft.withValues(alpha: 0.8),
-                            fontSize: 9.5,
-                          ),
-                        ),
-                      ),
-              ),
-              SizedBox(
-                height: 32,
-                child: AnimatedSwitcher(
+              _slot(16, _caption(alert, 9.5, kGoldSoft.withValues(alpha: 0.8))),
+              _slot(
+                32,
+                AnimatedSwitcher(
                   duration: const Duration(milliseconds: 160),
                   child: feedback == null
                       ? const SizedBox.shrink()
@@ -96,6 +66,23 @@ class GameHints extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  /// 固定高度的提示槽位：内容为空时也占位，避免牌桌布局跳动。
+  Widget _slot(double height, Widget? child) => SizedBox(
+    height: height,
+    child: child == null ? null : Center(child: child),
+  );
+
+  Widget? _caption(String? text, double size, Color color) {
+    if (text == null) return null;
+    return Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.center,
+      style: TextStyle(color: color, fontSize: size),
     );
   }
 }

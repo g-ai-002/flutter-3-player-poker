@@ -4,8 +4,19 @@ import '../models/app_settings.dart';
 import '../models/playing_card.dart';
 import 'card_counter.dart';
 import 'combo.dart';
+import 'combo_detector.dart';
 import 'game_engine.dart';
 import 'hand_analyzer.dart';
+
+/// 提示结果：推荐出的牌与一句给玩家看的理由。
+///
+/// [cards] 为 null 表示没有能压过上家的牌，此时理由建议玩家不出。
+class HintAdvice {
+  const HintAdvice({this.cards, required this.reason});
+
+  final List<PlayingCard>? cards;
+  final String reason;
+}
 
 /// 规则型 AI，按难度提供三档棋力。
 ///
@@ -32,25 +43,28 @@ class AiPlayer {
   }
 
   int bidScoreFor(List<PlayingCard> hand, int highestBid) {
-    final strength = _strength(hand);
-    var score = 0;
-    if (strength >= 9.5) {
-      score = 3;
-    } else if (strength >= 6.8) {
-      score = 2;
-    } else if (strength >= 4.6) {
-      score = 1;
+    var score = _bidScoreOf(hand);
+    if (level == AiLevel.easy && score > 0 && _random.nextDouble() < 0.45) {
+      score = 0;
     }
+    return score > highestBid ? score : 0;
+  }
 
-    switch (level) {
-      case AiLevel.easy:
-        if (score > 0 && _random.nextDouble() < 0.45) score = 0;
-      case AiLevel.normal:
-      case AiLevel.hard:
-        break;
-    }
-    if (score <= highestBid) return 0;
-    return score;
+  /// 教练建议叫分：只看牌力，不受难度随机与气势影响。
+  int advisedBid(List<PlayingCard> hand, int highestBid) {
+    final score = _bidScoreOf(hand);
+    return score > highestBid ? score : 0;
+  }
+
+  /// 手牌牌力评分，供叫分建议与牌桌展示。
+  double strengthOf(List<PlayingCard> hand) => _strength(hand);
+
+  int _bidScoreOf(List<PlayingCard> hand) {
+    final strength = _strength(hand);
+    if (strength >= 9.5) return 3;
+    if (strength >= 6.8) return 2;
+    if (strength >= 4.6) return 1;
+    return 0;
   }
 
   /// 加倍决策：牌力越强越愿意加倍，农民门槛低于地主。
@@ -147,12 +161,28 @@ class AiPlayer {
   }
 
   /// 人类玩家的提示：优先不拆炸弹/王炸的普通牌型，没有时才提示炸弹。
-  List<PlayingCard>? hint(DdzEngine engine) {
+  ///
+  /// 除了推荐牌，还给出一句理由，方便玩家理解「为什么出这几张」。
+  HintAdvice hintAdvice(DdzEngine engine) {
     final player = engine.players[0];
     final target = engine.lastCombo;
-    if (target == null) return _chooseLead(player.hand);
+    if (target == null) {
+      final cards = _chooseLead(player.hand);
+      if (cards == null) return const HintAdvice(reason: '没有可出的牌');
+      final combo = detectCombo(cards)!;
+      final left = _remainingPlays(player.hand, combo);
+      return HintAdvice(
+        cards: cards,
+        reason: left == 0
+            ? '一手走完，直接获胜'
+            : '自由领出：${combo.description}，还剩 $left 手',
+      );
+    }
+
     final options = analyzer.beatingCandidates(player.hand, target);
-    if (options.isEmpty) return null;
+    if (options.isEmpty) {
+      return const HintAdvice(reason: '没有能压过上家的牌，建议不出');
+    }
 
     final safe = options
         .where((combo) => !_breaksBomb(player.hand, combo))
@@ -160,7 +190,15 @@ class AiPlayer {
     final pool = safe.isNotEmpty ? safe : options;
     pool.sort(_compareBeat);
     final normal = pool.where((combo) => !combo.isBomb);
-    return (normal.isNotEmpty ? normal.first : pool.first).cards;
+    final combo = normal.isNotEmpty ? normal.first : pool.first;
+    if (combo.cards.length == player.hand.length) {
+      return HintAdvice(cards: combo.cards, reason: '一手走完，直接压过');
+    }
+    final reason = combo.isBomb
+        ? '只能用${combo.description}压过，留意倍数'
+        : '用最小的${combo.description}压过上家'
+              '${safe.length < options.length ? '，不拆炸弹' : ''}';
+    return HintAdvice(cards: combo.cards, reason: reason);
   }
 
   /// 领出：小牌优先；不拆炸弹与王炸；对手只剩一张时避免送单张。
