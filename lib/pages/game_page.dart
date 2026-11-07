@@ -113,7 +113,11 @@ class _GamePageState extends State<GamePage> {
             final compact = constraints.maxHeight < 560;
             final landscape = constraints.maxWidth > constraints.maxHeight;
             final narrow = constraints.maxWidth < GameLayout.narrowWidth;
-            final safeTop = MediaQuery.paddingOf(context).top;
+            // 横屏全屏时刘海与挖孔都在左右两侧，悬浮层统一避开安全区。
+            final padding = MediaQuery.paddingOf(context);
+            final safeTop = padding.top;
+            final safeLeft = 8 + padding.left;
+            final safeRight = 8 + padding.right;
             // 竖屏时座位条横在牌桌上沿，提示层顺势下移，始终避开两侧座位。
             final seatInset = landscape
                 ? 0.0
@@ -154,8 +158,8 @@ class _GamePageState extends State<GamePage> {
                 ),
                 Positioned(
                   top: safeTop,
-                  left: 8,
-                  right: 8,
+                  left: safeLeft,
+                  right: safeRight,
                   child: GameTopBar(
                     onBack: _leave,
                     onRestart: _restart,
@@ -168,8 +172,8 @@ class _GamePageState extends State<GamePage> {
                 if (!_counterOpen)
                   Positioned(
                     top: safeTop + GameTopBar.height + 2 + seatInset,
-                    left: 12,
-                    right: 12,
+                    left: safeLeft + 4,
+                    right: safeRight + 4,
                     child: GameHints(
                       provider: provider,
                       showSelection: narrow,
@@ -178,8 +182,8 @@ class _GamePageState extends State<GamePage> {
                 if (_counterOpen)
                   Positioned(
                     top: safeTop + GameTopBar.height + 2,
-                    left: 12,
-                    right: 12,
+                    left: safeLeft + 4,
+                    right: safeRight + 4,
                     child: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 460),

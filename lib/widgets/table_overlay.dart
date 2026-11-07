@@ -33,17 +33,30 @@ class TableOverlay extends StatelessWidget {
               ),
             ),
             if (showClose)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton(
-                  onPressed: onLeave,
-                  icon: const Icon(Icons.close, size: 20),
-                  color: Colors.white54,
-                  tooltip: '离开',
+              Positioned.fill(
+                child: SafeArea(
+                  minimum: const EdgeInsets.all(8),
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: IconButton(
+                      onPressed: onLeave,
+                      icon: const Icon(Icons.close, size: 20),
+                      color: Colors.white54,
+                      tooltip: '离开',
+                    ),
+                  ),
                 ),
               ),
-            Center(child: child),
+            // 横屏全屏时刘海与挖孔会占住左右边缘，浮层面板整体让开安全区。
+            Center(
+              child: SafeArea(
+                minimum: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                child: child,
+              ),
+            ),
           ],
         ),
       ),
@@ -70,24 +83,31 @@ class TablePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = math.min(maxWidth, MediaQuery.sizeOf(context).width - 40);
-    return Container(
-      width: width,
-      padding: padding,
-      decoration: BoxDecoration(
-        color: gradient == null ? const Color(0xFF14301F) : null,
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: kGold.withValues(alpha: 0.45)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.48),
-            blurRadius: 26,
-            offset: const Offset(0, 11),
+    // 用父级实际可用宽度收敛，安全区与窄屏都不会把面板撑出屏幕。
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final limit = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width - 40;
+        return Container(
+          width: math.min(maxWidth, limit),
+          padding: padding,
+          decoration: BoxDecoration(
+            color: gradient == null ? const Color(0xFF14301F) : null,
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(color: kGold.withValues(alpha: 0.45)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.48),
+                blurRadius: 26,
+                offset: const Offset(0, 11),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: child,
+          child: child,
+        );
+      },
     );
   }
 }
