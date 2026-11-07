@@ -1,23 +1,34 @@
 import 'package:flutter/material.dart';
 
+import '../../game/game_engine.dart';
 import '../../providers/game_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/hand_view.dart';
 import '../../widgets/turn_countdown.dart';
+import 'game_layout.dart';
 
-/// 底部操作条：牌型说明在左，提示 / 不出 / 出牌三个按钮居中。
+/// 底部操作 dock：提示 / 不出 / 出牌三个按钮居中，始终占据固定高度。
+///
+/// 叫分、加倍阶段也保留同高度的空 dock，出牌阶段的提示与选牌文案只在
+/// 左右两侧的信息位内变化，因此按钮、手牌与牌桌都不会发生位移。
 class GameActionBar extends StatelessWidget {
   const GameActionBar({super.key, required this.provider});
+
+  /// 操作条固定高度，牌桌页不需要再为它单独计算占位。
+  static const double height = GameLayout.actionBarHeight;
 
   final GameProvider provider;
 
   @override
   Widget build(BuildContext context) {
+    if (provider.phase != GamePhase.playing) {
+      return const SizedBox(width: double.infinity, height: height);
+    }
     final selected = provider.selectedCombo;
-    final label = provider.selectedCards.isEmpty
+    final empty = provider.selectedCards.isEmpty;
+    final label = empty
         ? '请选择要出的牌'
         : selected?.description ?? '牌型不合法';
-    final empty = provider.selectedCards.isEmpty;
     final labelText = Text(
       label,
       maxLines: 1,
@@ -51,62 +62,73 @@ class GameActionBar extends StatelessWidget {
       ],
     );
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // 窄屏放不下「倒计时 + 说明 + 按钮」一行：说明单独占一行。
-          if (constraints.maxWidth < 520) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: Center(child: labelText),
-                ),
-                const SizedBox(height: 2),
-                SizedBox(height: 38, child: buttons),
-              ],
-            );
-          }
-          return SizedBox(
-            height: 38,
-            child: Row(
-              children: [
-                // 左侧留白与右侧 Spacer 对称，保证三个按钮始终居中。
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (provider.isHumanTurn) ...[
-                          TurnCountdown(
-                            seconds: provider.turnSecondsLeft,
-                            compact: true,
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        Flexible(child: labelText),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${provider.humanHand.length} 张',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.4),
-                            fontSize: 10,
-                          ),
+    return SizedBox(
+      height: height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.transparent, Colors.black.withValues(alpha: 0.2)],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // 窄屏放不下「倒计时 + 说明」：说明改由顶部悬浮提示展示。
+              final narrow =
+                  constraints.maxWidth < GameLayout.narrowWidth;
+              return Row(
+                children: [
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (provider.isHumanTurn) ...[
+                              TurnCountdown(
+                                seconds: provider.turnSecondsLeft,
+                                compact: true,
+                              ),
+                              if (!narrow) const SizedBox(width: 8),
+                            ],
+                            if (!narrow) labelText,
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                buttons,
-                const Spacer(),
-              ],
-            ),
-          );
-        },
+                  const SizedBox(width: 10),
+                  buttons,
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 10),
+                          child: Text(
+                            '${provider.humanHand.length} 张',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.4),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -168,36 +190,6 @@ class HumanHandView extends StatelessWidget {
           onSelectionChanged: provider.setSelection,
           maxCardWidth: compact ? 44 : null,
         ),
-      ),
-    );
-  }
-}
-
-/// 顶部轻提示：非法操作、无解提示等。
-class FeedbackToast extends StatelessWidget {
-  const FeedbackToast({super.key, required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-      decoration: BoxDecoration(
-        color: const Color(0xF0182B20),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: kGold.withValues(alpha: 0.35)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white, fontSize: 12),
       ),
     );
   }

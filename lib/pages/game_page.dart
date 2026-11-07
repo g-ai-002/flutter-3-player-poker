@@ -12,11 +12,16 @@ import '../widgets/card_counter_overlay.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/turn_countdown.dart';
 import 'game/game_action_bar.dart';
+import 'game/game_hints.dart';
+import 'game/game_layout.dart';
 import 'game/game_overlays.dart';
 import 'game/game_top_bar.dart';
 import 'game/table_area.dart';
 
 /// 牌桌页：组合 Flame 视觉层与 Flutter 交互层，并负责页面级对话框。
+///
+/// 牌桌拿到的空间是整屏只扣掉「悬浮顶栏固定高度 + 底部操作 dock + 手牌」后的全部剩余，
+/// 轮次、上一手与临时反馈都悬浮在牌桌上方，不参与布局，也不会推挤牌桌。
 class GamePage extends StatefulWidget {
   const GamePage({super.key});
 
@@ -107,6 +112,12 @@ class _GamePageState extends State<GamePage> {
           builder: (context, constraints) {
             final compact = constraints.maxHeight < 560;
             final landscape = constraints.maxWidth > constraints.maxHeight;
+            final narrow = constraints.maxWidth < GameLayout.narrowWidth;
+            final safeTop = MediaQuery.paddingOf(context).top;
+            // 竖屏时座位条横在牌桌上沿，提示层顺势下移，始终避开两侧座位。
+            final seatInset = landscape
+                ? 0.0
+                : GameTableArea.portraitSeatHeight(compact: compact) + 2;
             return Stack(
               children: [
                 Positioned.fill(
@@ -114,6 +125,7 @@ class _GamePageState extends State<GamePage> {
                     child: GameWidget(key: _gameKey, game: table),
                   ),
                 ),
+                // 牌桌与底部交互区：只让出悬浮顶栏的固定高度，其余空间全部给牌桌。
                 SafeArea(
                   child: Column(
                     children: [
@@ -122,42 +134,50 @@ class _GamePageState extends State<GamePage> {
                         serial: provider.engine.turnSerial,
                         active: provider.phase == GamePhase.playing,
                       ),
-                      GameTopBar(
-                        onBack: _leave,
-                        onRestart: _restart,
-                        compact: compact,
-                        counterOpen: _counterOpen,
-                        onToggleCounter: () =>
-                            setState(() => _counterOpen = !_counterOpen),
-                      ),
-                      BottomCardsBar(engine: provider.engine, compact: compact),
                       Expanded(
-                        child: GameTableArea(
-                          provider: provider,
-                          landscape: landscape,
-                          compact: compact,
-                          onPileCenters: _syncPileCenters,
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            top: GameTopBar.height,
+                          ),
+                          child: GameTableArea(
+                            provider: provider,
+                            landscape: landscape,
+                            compact: compact,
+                            onPileCenters: _syncPileCenters,
+                          ),
                         ),
                       ),
-                      if (provider.phase == GamePhase.playing)
-                        GameActionBar(provider: provider),
+                      GameActionBar(provider: provider),
                       HumanHandView(provider: provider, compact: compact),
                     ],
                   ),
                 ),
-                if (provider.feedback != null)
+                Positioned(
+                  top: safeTop,
+                  left: 8,
+                  right: 8,
+                  child: GameTopBar(
+                    onBack: _leave,
+                    onRestart: _restart,
+                    counterOpen: _counterOpen,
+                    onToggleCounter: () =>
+                        setState(() => _counterOpen = !_counterOpen),
+                  ),
+                ),
+                // 提示层与记牌器都贴在悬浮顶栏下方，互斥显示避免文字叠加。
+                if (!_counterOpen)
                   Positioned(
-                    left: 20,
-                    right: 20,
-                    bottom: provider.phase == GamePhase.playing ? 200 : 120,
-                    child: Center(
-                      child: FeedbackToast(text: provider.feedback!),
+                    top: safeTop + GameTopBar.height + 2 + seatInset,
+                    left: 12,
+                    right: 12,
+                    child: GameHints(
+                      provider: provider,
+                      showSelection: narrow,
                     ),
                   ),
-                // 记牌器常驻浮层：不设遮罩，只有关闭按钮能收起。
                 if (_counterOpen)
                   Positioned(
-                    top: MediaQuery.paddingOf(context).top + 96,
+                    top: safeTop + GameTopBar.height + 2,
                     left: 12,
                     right: 12,
                     child: Center(

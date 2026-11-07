@@ -7,7 +7,9 @@ import '../../widgets/played_cards_view.dart';
 import '../../widgets/playing_card_view.dart';
 import '../../widgets/seat_panel.dart';
 
-/// 牌桌顶部的底牌条：开局背面朝上，地主确定后亮出。
+/// 顶栏中央的底牌胶囊：开局背面朝上，地主确定后亮出。
+///
+/// 底牌内嵌在悬浮顶栏里，不再单独占用一条横向空间。
 class BottomCardsBar extends StatelessWidget {
   const BottomCardsBar({super.key, required this.engine, this.compact = false});
 
@@ -17,24 +19,31 @@ class BottomCardsBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final revealed = engine.landlord != null;
-    final width = compact ? 27.0 : 31.0;
-    return SizedBox(
-      height: compact ? 42 : 50,
+    final width = compact ? 22.0 : 24.0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.26),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: kGold.withValues(alpha: 0.22)),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '底牌',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.45),
-              fontSize: 10,
-              letterSpacing: 2,
+          if (!compact) ...[
+            Text(
+              '底牌',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.42),
+                fontSize: 9,
+                letterSpacing: 1.5,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
+            const SizedBox(width: 6),
+          ],
           for (final card in engine.bottomCards)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 1.5),
               child: PlayingCardView(
                 card: card,
                 width: width,
@@ -46,7 +55,7 @@ class BottomCardsBar extends StatelessWidget {
               '待发牌',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.35),
-                fontSize: 10,
+                fontSize: 9,
               ),
             ),
         ],
@@ -57,7 +66,8 @@ class BottomCardsBar extends StatelessWidget {
 
 /// 牌桌中央区域：三家出牌区呈三足鼎立。
 ///
-/// 左右两家在牌桌两侧偏上，玩家出牌区贴底居中，中间留给回合提示。
+/// 左右两家在牌桌两侧偏上，玩家出牌区贴底居中；中央不再放常驻状态文字，
+/// 轮次与提示由牌桌页的悬浮提示层承担，牌桌因此拿到完整的垂直空间。
 /// 布局完成后把三处出牌区的屏幕坐标回传给牌桌页，供 Flame 飞牌动画落点使用。
 class GameTableArea extends StatefulWidget {
   const GameTableArea({
@@ -74,6 +84,10 @@ class GameTableArea extends StatefulWidget {
 
   /// 三家出牌区的全局坐标（0 玩家、1 右侧、2 左侧）。
   final ValueChanged<Map<int, Offset>>? onPileCenters;
+
+  /// 竖屏座位条高度：悬浮提示层据此避开左右座位。
+  static double portraitSeatHeight({bool compact = false}) =>
+      compact ? 60 : 106;
 
   @override
   State<GameTableArea> createState() => _GameTableAreaState();
@@ -212,10 +226,8 @@ class _GameTableAreaState extends State<GameTableArea> {
               Expanded(
                 flex: 4,
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Expanded(
-                      child: Center(child: StatusInfo(provider: provider)),
-                    ),
                     FittedBox(fit: BoxFit.scaleDown, child: humanPile),
                     const SizedBox(height: 2),
                   ],
@@ -236,7 +248,9 @@ class _GameTableAreaState extends State<GameTableArea> {
         return Column(
           children: [
             SizedBox(
-              height: widget.compact ? 60 : 106,
+              height: GameTableArea.portraitSeatHeight(
+                compact: widget.compact,
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -262,10 +276,8 @@ class _GameTableAreaState extends State<GameTableArea> {
                   Expanded(
                     flex: 4,
                     child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Expanded(
-                          child: Center(child: StatusInfo(provider: provider)),
-                        ),
                         FittedBox(fit: BoxFit.scaleDown, child: humanPile),
                         const SizedBox(height: 2),
                       ],
@@ -376,82 +388,6 @@ class PileLabel extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-class TurnChip extends StatelessWidget {
-  const TurnChip({super.key, required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          text,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.72),
-            fontSize: 11,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 中央状态：轮次提示 + 最近一手动作。
-class StatusInfo extends StatelessWidget {
-  const StatusInfo({super.key, required this.provider});
-
-  final GameProvider provider;
-
-  @override
-  Widget build(BuildContext context) {
-    final action = provider.engine.lastActionText;
-    final landlord = provider.engine.landlord;
-    final aiRevealed =
-        provider.engine.revealed && landlord != null && landlord != 0;
-    // 牌桌高度有限时整体等比缩小，避免提示文字把牌桌撑破。
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TurnChip(text: provider.turnHint),
-          if (aiRevealed) ...[
-            const SizedBox(height: 3),
-            Text(
-              '地主已明牌 · 点击其座位查看手牌',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: kGoldSoft.withValues(alpha: 0.8),
-                fontSize: 9.5,
-              ),
-            ),
-          ],
-          if (action != null && provider.phase != GamePhase.finished) ...[
-            const SizedBox(height: 2),
-            Text(
-              action,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.42),
-                fontSize: 10,
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }
