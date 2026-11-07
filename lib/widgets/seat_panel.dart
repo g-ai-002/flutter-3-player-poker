@@ -47,6 +47,54 @@ class SeatPanel extends StatelessWidget {
     };
   }
 
+  /// 座位底板：当前回合用金色描边，常规样式再加一圈柔光。
+  BoxDecoration _frame(double radius, {bool glow = false}) => BoxDecoration(
+    color: Colors.black.withValues(alpha: 0.22),
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(
+      color: isCurrent
+          ? kGold.withValues(alpha: 0.85)
+          : Colors.white.withValues(alpha: 0.08),
+      width: isCurrent ? 1.4 : 0.8,
+    ),
+    boxShadow: !glow || !isCurrent
+        ? null
+        : [
+            BoxShadow(
+              color: kGold.withValues(alpha: 0.22),
+              blurRadius: 14,
+              spreadRadius: 1,
+            ),
+          ],
+  );
+
+  /// 头像：地主用金色，农民用绿松石色。
+  Widget _avatar(double size, double fontSize) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: LinearGradient(
+        colors: player.isLandlord
+            ? const [Color(0xFFE0B45F), Color(0xFF9A6B20)]
+            : const [Color(0xFF3E7A5B), Color(0xFF1B3E2B)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+    ),
+    child: Center(
+      child: Text(
+        player.name.substring(0, 1),
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final status = _status;
@@ -55,58 +103,14 @@ class SeatPanel extends StatelessWidget {
       onTap: revealed ? onTap : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.22),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isCurrent
-                ? kGold.withValues(alpha: 0.85)
-                : Colors.white.withValues(alpha: 0.08),
-            width: isCurrent ? 1.4 : 0.8,
-          ),
-          boxShadow: isCurrent
-              ? [
-                  BoxShadow(
-                    color: kGold.withValues(alpha: 0.22),
-                    blurRadius: 14,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
-        ),
+        decoration: _frame(14, glow: true),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: player.isLandlord
-                          ? const [Color(0xFFE0B45F), Color(0xFF9A6B20)]
-                          : const [Color(0xFF3E7A5B), Color(0xFF1B3E2B)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      player.name.substring(0, 1),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
+                _avatar(36, 15),
                 if (player.isLandlord)
                   const Positioned(
                     right: -12,
@@ -201,44 +205,11 @@ class SeatPanel extends StatelessWidget {
       onTap: revealed ? onTap : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.22),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isCurrent
-                ? kGold.withValues(alpha: 0.85)
-                : Colors.white.withValues(alpha: 0.08),
-            width: isCurrent ? 1.4 : 0.8,
-          ),
-        ),
+        decoration: _frame(12),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: player.isLandlord
-                      ? const [Color(0xFFE0B45F), Color(0xFF9A6B20)]
-                      : const [Color(0xFF3E7A5B), Color(0xFF1B3E2B)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
-              ),
-              child: Center(
-                child: Text(
-                  player.name.substring(0, 1),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
+            _avatar(24, 11),
             const SizedBox(width: 5),
             Column(
               mainAxisSize: MainAxisSize.min,

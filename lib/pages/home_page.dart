@@ -153,10 +153,7 @@ class HomePage extends StatelessWidget {
             children: [
               _header(context, settings),
               SizedBox(height: dense ? 10 : 14),
-              _StartButton(
-                onPressed: () => _startGame(context),
-                dense: dense,
-              ),
+              _StartButton(onPressed: () => _startGame(context), dense: dense),
               SizedBox(height: dense ? 10 : 14),
               _navGrid(context, dense: dense),
               SizedBox(height: dense ? 14 : 22),
@@ -401,11 +398,7 @@ class _HeroPanel extends StatelessWidget {
       offset: Offset(offset, highlighted ? -6 : 0),
       child: Transform.rotate(
         angle: angle,
-        child: PlayingCardView(
-          card: card,
-          width: width,
-          selected: highlighted,
-        ),
+        child: PlayingCardView(card: card, width: width, selected: highlighted),
       ),
     );
   }

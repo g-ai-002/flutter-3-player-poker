@@ -178,10 +178,7 @@ class _GamePageState extends State<GamePage> {
                     top: safeTop + GameTopBar.height + 2 + seatInset,
                     left: safeLeft + 4,
                     right: safeRight + 4,
-                    child: GameHints(
-                      provider: provider,
-                      showSelection: narrow,
-                    ),
+                    child: GameHints(provider: provider, showSelection: narrow),
                   ),
                 if (_counterOpen)
                   Positioned(

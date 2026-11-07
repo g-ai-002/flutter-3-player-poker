@@ -97,7 +97,10 @@ class GameTopBar extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _InfoChip(text: multiplier, maxWidth: narrow ? 84 : 190),
+                        _InfoChip(
+                          text: multiplier,
+                          maxWidth: narrow ? 84 : 190,
+                        ),
                         const SizedBox(width: 4),
                         _GlassIcon(
                           tooltip: counterOpen ? '隐藏记牌器' : '记牌器',

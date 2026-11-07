@@ -19,6 +19,20 @@ class StatsPage extends StatelessWidget {
     if (ok) await StatsService.instance.reset();
   }
 
+  /// 一行两块的统计卡片，保持 2×2 的排布。
+  Widget _tileRow(List<(String, String, String)> tiles) {
+    return Row(
+      children: [
+        for (final (index, tile) in tiles.indexed) ...[
+          if (index > 0) const SizedBox(width: 10),
+          Expanded(
+            child: _StatTile(label: tile.$1, value: tile.$2, note: tile.$3),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -33,49 +47,33 @@ class StatsPage extends StatelessWidget {
               children: [
                 _SummaryCard(stats: stats),
                 const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _StatTile(
-                        label: '地主局数',
-                        value: '${stats.landlordGames}',
-                        note:
-                            '胜率 ${(stats.landlordWinRate * 100).toStringAsFixed(1)}%',
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _StatTile(
-                        label: '农民局数',
-                        value: '${stats.peasantGames}',
-                        note:
-                            '胜率 ${(stats.peasantWinRate * 100).toStringAsFixed(1)}%',
-                      ),
-                    ),
-                  ],
-                ),
+                _tileRow([
+                  (
+                    '地主局数',
+                    '${stats.landlordGames}',
+                    '胜率 ${(stats.landlordWinRate * 100).toStringAsFixed(1)}%',
+                  ),
+                  (
+                    '农民局数',
+                    '${stats.peasantGames}',
+                    '胜率 ${(stats.peasantWinRate * 100).toStringAsFixed(1)}%',
+                  ),
+                ]),
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _StatTile(
-                        label: '累计积分',
-                        value: '${stats.totalScore}',
-                        note: stats.totalScore >= 0 ? '保持盈利' : '继续加油',
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _StatTile(
-                        label: '最高连胜',
-                        value: '${stats.bestStreak}',
-                        note: stats.currentStreak > 0
-                            ? '当前 ${stats.currentStreak} 连胜'
-                            : '从下一局开始',
-                      ),
-                    ),
-                  ],
-                ),
+                _tileRow([
+                  (
+                    '累计积分',
+                    '${stats.totalScore}',
+                    stats.totalScore >= 0 ? '保持盈利' : '继续加油',
+                  ),
+                  (
+                    '最高连胜',
+                    '${stats.bestStreak}',
+                    stats.currentStreak > 0
+                        ? '当前 ${stats.currentStreak} 连胜'
+                        : '从下一局开始',
+                  ),
+                ]),
                 const SizedBox(height: 22),
                 if (stats.games > 0)
                   OutlinedButton.icon(

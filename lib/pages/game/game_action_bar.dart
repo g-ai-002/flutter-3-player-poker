@@ -26,9 +26,7 @@ class GameActionBar extends StatelessWidget {
     }
     final selected = provider.selectedCombo;
     final empty = provider.selectedCards.isEmpty;
-    final label = empty
-        ? '请选择要出的牌'
-        : selected?.description ?? '牌型不合法';
+    final label = empty ? '请选择要出的牌' : selected?.description ?? '牌型不合法';
     final labelText = Text(
       label,
       maxLines: 1,
@@ -77,8 +75,7 @@ class GameActionBar extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               // 窄屏放不下「倒计时 + 说明」：说明改由顶部悬浮提示展示。
-              final narrow =
-                  constraints.maxWidth < GameLayout.narrowWidth;
+              final narrow = constraints.maxWidth < GameLayout.narrowWidth;
               return Row(
                 children: [
                   Expanded(

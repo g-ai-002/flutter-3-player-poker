@@ -39,16 +39,7 @@ class HandRecordPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('牌谱详情'),
-        actions: [
-          IconButton(
-            tooltip: '复制牌谱',
-            onPressed: () => _copy(context),
-            icon: const Icon(Icons.copy_all_outlined),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('牌谱详情')),
       body: PageFrame(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),

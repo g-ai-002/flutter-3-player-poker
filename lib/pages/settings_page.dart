@@ -15,6 +15,9 @@ import '../widgets/section_card.dart';
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
+  Widget _rowDivider(BuildContext context) =>
+      Divider(height: 18, color: Theme.of(context).colorScheme.outlineVariant);
+
   Future<void> _showLogs(BuildContext context) async {
     final lines = LogService.getRecentLogs(300);
     if (!context.mounted) return;
@@ -110,20 +113,14 @@ class SettingsPage extends StatelessWidget {
                   value: settings.soundEnabled,
                   onChanged: settings.setSoundEnabled,
                 ),
-                Divider(
-                  height: 18,
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
+                _rowDivider(context),
                 _SwitchRow(
                   label: '背景音乐',
                   description: '对局中循环播放轻柔的本地合成旋律',
                   value: settings.musicEnabled,
                   onChanged: settings.setMusicEnabled,
                 ),
-                Divider(
-                  height: 18,
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
+                _rowDivider(context),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
@@ -146,92 +143,30 @@ class SettingsPage extends StatelessWidget {
             SectionCard(
               title: '对局',
               children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('AI 难度', style: TextStyle(fontSize: 14)),
-                      const SizedBox(height: 3),
-                      Text(
-                        settings.aiLevel.description,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          for (final level in AiLevel.values)
-                            ChoiceChip(
-                              label: Text(level.label),
-                              selected: settings.aiLevel == level,
-                              onSelected: (_) => settings.setAiLevel(level),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
+                _ChoiceRow<AiLevel>(
+                  label: 'AI 难度',
+                  description: settings.aiLevel.description,
+                  values: AiLevel.values,
+                  selected: settings.aiLevel,
+                  labelOf: (level) => level.label,
+                  onSelected: settings.setAiLevel,
                 ),
-                Divider(
-                  height: 18,
-                  color: Theme.of(context).colorScheme.outlineVariant,
+                _rowDivider(context),
+                _ChoiceRow<AiSpeed>(
+                  label: 'AI 思考速度',
+                  values: AiSpeed.values,
+                  selected: settings.aiSpeed,
+                  labelOf: (speed) => speed.label,
+                  onSelected: settings.setAiSpeed,
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('AI 思考速度', style: TextStyle(fontSize: 14)),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          for (final speed in AiSpeed.values)
-                            ChoiceChip(
-                              label: Text(speed.label),
-                              selected: settings.aiSpeed == speed,
-                              onSelected: (_) => settings.setAiSpeed(speed),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(
-                  height: 18,
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('逻辑更新速率', style: TextStyle(fontSize: 14)),
-                      const SizedBox(height: 3),
-                      Text(
-                        '${settings.logicRate.description}，进入牌桌后生效',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          for (final rate in LogicRate.values)
-                            ChoiceChip(
-                              label: Text(rate.label),
-                              selected: settings.logicRate == rate,
-                              onSelected: (_) => settings.setLogicRate(rate),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
+                _rowDivider(context),
+                _ChoiceRow<LogicRate>(
+                  label: '逻辑更新速率',
+                  description: '${settings.logicRate.description}，进入牌桌后生效',
+                  values: LogicRate.values,
+                  selected: settings.logicRate,
+                  labelOf: (rate) => rate.label,
+                  onSelected: settings.setLogicRate,
                 ),
               ],
             ),
@@ -369,6 +304,60 @@ class _SwitchRow extends StatelessWidget {
         ),
         Switch.adaptive(value: value, onChanged: onChanged),
       ],
+    );
+  }
+}
+
+/// 带标题与说明的单选行：AI 难度、思考速度与逻辑速率共用同一套排版。
+class _ChoiceRow<T> extends StatelessWidget {
+  const _ChoiceRow({
+    required this.label,
+    required this.values,
+    required this.selected,
+    required this.labelOf,
+    required this.onSelected,
+    this.description,
+  });
+
+  final String label;
+  final String? description;
+  final List<T> values;
+  final T selected;
+  final String Function(T value) labelOf;
+  final ValueChanged<T> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 14)),
+          if (description case final note?) ...[
+            const SizedBox(height: 3),
+            Text(
+              note,
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final value in values)
+                ChoiceChip(
+                  label: Text(labelOf(value)),
+                  selected: value == selected,
+                  onSelected: (_) => onSelected(value),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

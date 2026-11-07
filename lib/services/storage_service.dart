@@ -56,9 +56,8 @@ class StorageService {
   LogicRate get logicRate =>
       LogicRate.fromHertz(_p.getInt(AppConstants.prefKeyLogicRate));
 
-  Future<void> setLogicRate(LogicRate value) => _write(
-    (prefs) => prefs.setInt(AppConstants.prefKeyLogicRate, value.hz),
-  );
+  Future<void> setLogicRate(LogicRate value) =>
+      _write((prefs) => prefs.setInt(AppConstants.prefKeyLogicRate, value.hz));
 
   bool get soundEnabled => _p.getBool(AppConstants.prefKeySound) ?? true;
 
