@@ -722,6 +722,10 @@ void main() {
     expect(find.text('快速'), findsOneWidget);
     expect(find.text('标准'), findsWidgets);
     expect(find.text('从容'), findsOneWidget);
+    expect(find.text('逻辑更新速率'), findsOneWidget);
+    expect(find.text('30Hz'), findsOneWidget);
+    expect(find.text('60Hz'), findsOneWidget);
+    expect(find.text('120Hz'), findsOneWidget);
 
     await tester.tap(find.text('高手'));
     await tester.pump();
@@ -734,6 +738,13 @@ void main() {
     await tester.tap(find.byType(Switch).at(1));
     await tester.pump();
     expect(settings.soundEnabled, isFalse);
+
+    // 选项位于列表下方，先滚动到可见区域再点击。
+    await tester.ensureVisible(find.text('120Hz'));
+    await tester.pump();
+    await tester.tap(find.text('120Hz'));
+    await tester.pump();
+    expect(settings.logicRate, LogicRate.hz120);
   });
 
   testWidgets('叫分浮层展示分档并可直接叫 3 分', (tester) async {

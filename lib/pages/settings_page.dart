@@ -200,6 +200,39 @@ class SettingsPage extends StatelessWidget {
                     ],
                   ),
                 ),
+                Divider(
+                  height: 18,
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('逻辑更新速率', style: TextStyle(fontSize: 14)),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${settings.logicRate.description}，进入牌桌后生效',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          for (final rate in LogicRate.values)
+                            ChoiceChip(
+                              label: Text(rate.label),
+                              selected: settings.logicRate == rate,
+                              onSelected: (_) => settings.setLogicRate(rate),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),

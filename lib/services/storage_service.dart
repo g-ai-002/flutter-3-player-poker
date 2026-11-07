@@ -53,6 +53,13 @@ class StorageService {
     (prefs) => prefs.setString(AppConstants.prefKeyAiLevel, value.name),
   );
 
+  LogicRate get logicRate =>
+      LogicRate.fromHertz(_p.getInt(AppConstants.prefKeyLogicRate));
+
+  Future<void> setLogicRate(LogicRate value) => _write(
+    (prefs) => prefs.setInt(AppConstants.prefKeyLogicRate, value.hz),
+  );
+
   bool get soundEnabled => _p.getBool(AppConstants.prefKeySound) ?? true;
 
   Future<void> setSoundEnabled(bool value) =>

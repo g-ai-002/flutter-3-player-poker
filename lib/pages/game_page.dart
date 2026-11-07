@@ -39,7 +39,11 @@ class _GamePageState extends State<GamePage> {
     super.initState();
     enterGameFullscreen();
     final provider = context.read<GameProvider>();
-    _table = DdzTableGame(bus: provider.events, introDeal: true);
+    _table = DdzTableGame(
+      bus: provider.events,
+      introDeal: true,
+      logicHz: provider.settings.logicRate.hz,
+    );
     if (provider.phase == GamePhase.idle) {
       provider.newGame();
     }

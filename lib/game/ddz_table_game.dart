@@ -8,21 +8,37 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/playing_card.dart';
+import 'logic_clock.dart';
 import 'table_events.dart';
 
 /// Flame 牌桌：绒面背景、浮尘、发牌/出牌飞行动画与炸弹冲击波。
 ///
 /// 交互全部由 Flutter 组件承担，这里只负责视觉层，避免两套手势系统冲突。
 class DdzTableGame extends FlameGame {
-  DdzTableGame({required this.bus, this.introDeal = false});
+  DdzTableGame({
+    required this.bus,
+    this.introDeal = false,
+    int logicHz = LogicClock.defaultRate,
+  }) : _clock = LogicClock(rate: logicHz);
 
   final TableEventBus bus;
 
   /// 进入牌桌时补一次发牌动画：首局的发牌事件在牌桌订阅之前就已发出。
   final bool introDeal;
 
+  final LogicClock _clock;
+
   @override
   Color backgroundColor() => const Color(0xFF081A11);
+
+  /// 渲染仍按屏幕刷新率进行，组件逻辑按设置的固定步长推进。
+  @override
+  void update(double dt) {
+    final steps = _clock.advance(dt);
+    for (var i = 0; i < steps; i++) {
+      super.update(_clock.step);
+    }
+  }
 
   @override
   Future<void> onLoad() async {

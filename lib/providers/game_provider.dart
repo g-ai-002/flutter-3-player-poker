@@ -153,7 +153,7 @@ class GameProvider extends ChangeNotifier {
       ..play(AudioCue.deal);
     LogService.info(
       '新对局开始，叫分顺序: ${engine.currentPlayer}，AI 难度: '
-      '${settings.aiLevel.label}',
+      '${settings.aiLevel.label}，逻辑更新: ${settings.logicRate.label}',
     );
     events.emit(const TableEvent(type: TableEventType.deal));
     _notify();

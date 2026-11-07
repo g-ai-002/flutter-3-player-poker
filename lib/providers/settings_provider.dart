@@ -9,6 +9,7 @@ class SettingsProvider extends ChangeNotifier {
     : _darkMode = _storage.darkMode,
       _aiSpeed = _storage.aiSpeed,
       _aiLevel = _storage.aiLevel,
+      _logicRate = _storage.logicRate,
       _soundEnabled = _storage.soundEnabled,
       _musicEnabled = _storage.musicEnabled {
     AudioService.instance
@@ -20,12 +21,14 @@ class SettingsProvider extends ChangeNotifier {
   bool _darkMode;
   AiSpeed _aiSpeed;
   AiLevel _aiLevel;
+  LogicRate _logicRate;
   bool _soundEnabled;
   bool _musicEnabled;
 
   bool get darkMode => _darkMode;
   AiSpeed get aiSpeed => _aiSpeed;
   AiLevel get aiLevel => _aiLevel;
+  LogicRate get logicRate => _logicRate;
   bool get soundEnabled => _soundEnabled;
   bool get musicEnabled => _musicEnabled;
 
@@ -48,6 +51,13 @@ class SettingsProvider extends ChangeNotifier {
     _aiLevel = value;
     notifyListeners();
     _storage.setAiLevel(value);
+  }
+
+  void setLogicRate(LogicRate value) {
+    if (_logicRate == value) return;
+    _logicRate = value;
+    notifyListeners();
+    _storage.setLogicRate(value);
   }
 
   void setSoundEnabled(bool value) {

@@ -35,3 +35,23 @@ enum AiLevel {
     return AiLevel.normal;
   }
 }
+
+/// 牌桌逻辑更新速率：与屏幕刷新率解耦的固定步长。
+enum LogicRate {
+  hz30('30Hz', 30, '逻辑步减半，最省电，动画略粗'),
+  hz60('60Hz', 60, '默认，兼顾性能与流畅度'),
+  hz120('120Hz', 120, '适合高刷屏，逻辑更顺滑，也更耗电');
+
+  const LogicRate(this.label, this.hz, this.description);
+
+  final String label;
+  final int hz;
+  final String description;
+
+  static LogicRate fromHertz(int? hz) {
+    for (final value in values) {
+      if (value.hz == hz) return value;
+    }
+    return LogicRate.hz60;
+  }
+}
