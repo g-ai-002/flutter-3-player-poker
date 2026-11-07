@@ -114,11 +114,7 @@ void main() {
     final game = GameProvider(settings: settings, aiDelayOverride: 0);
     addTearDown(game.dispose);
 
-    for (final size in const [
-      Size(320, 568),
-      Size(390, 844),
-      Size(673, 841),
-    ]) {
+    for (final size in const [Size(320, 568), Size(390, 844), Size(673, 841)]) {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
       await tester.pumpWidget(
@@ -187,14 +183,8 @@ void main() {
 
     expect(await pileWidthAt(const Size(780, 360)), closeTo(48.75, 0.01));
     expect(await pileWidthAt(const Size(1440, 900)), greaterThanOrEqualTo(86));
-    expect(
-      await pileWidthAt(const Size(3840, 2160)),
-      greaterThanOrEqualTo(90),
-    );
-    expect(
-      await pileWidthAt(const Size(3840, 2160)),
-      lessThanOrEqualTo(96),
-    );
+    expect(await pileWidthAt(const Size(3840, 2160)), greaterThanOrEqualTo(90));
+    expect(await pileWidthAt(const Size(3840, 2160)), lessThanOrEqualTo(96));
 
     game.stop();
     tester.view.resetPhysicalSize();
@@ -261,6 +251,42 @@ void main() {
       expect(chip.overlaps(pile), isFalse, reason: '不压对手出牌区');
     }
     expect(find.byType(GameHints), findsOneWidget);
+
+    game.stop();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('竖屏三家出牌区聚在牌桌中央且朝向座位', (tester) async {
+    final settings = await makeSettings();
+    final game = await playingGame(settings);
+    addTearDown(game.dispose);
+
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+
+    // 树序：左家 2、玩家 0、右家 1。
+    final rects = [
+      for (var i = 0; i < 3; i++)
+        tester.getRect(find.byType(PlayedCardsView).at(i)),
+    ];
+    for (final rect in rects) {
+      expect(
+        rect.center.dx,
+        inInclusiveRange(360 * 0.15, 360 * 0.85),
+        reason: '竖屏三家出牌区也应落在牌桌中央',
+      );
+    }
+    expect(rects[0].center.dx, lessThan(rects[1].center.dx));
+    expect(rects[1].center.dx, lessThan(rects[2].center.dx));
+    expect(rects[0].center.dy, lessThan(rects[1].center.dy));
+    expect(rects[2].center.dy, lessThan(rects[1].center.dy));
+    expect(rects[0].left, greaterThan(20), reason: '左家牌堆不贴屏幕边缘');
+    expect(rects[2].right, lessThan(340), reason: '右家牌堆不贴屏幕边缘');
 
     game.stop();
     tester.view.resetPhysicalSize();

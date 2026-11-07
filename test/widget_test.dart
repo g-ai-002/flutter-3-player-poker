@@ -222,7 +222,7 @@ void main() {
     tester.view.resetDevicePixelRatio();
   });
 
-  testWidgets('三家出牌区呈三足鼎立并贴住牌桌两侧', (tester) async {
+  testWidgets('三家出牌区聚在牌桌中央并各自朝向座位倾斜', (tester) async {
     final settings = await makeSettings();
     final game = GameProvider(settings: settings, aiDelayOverride: 600000);
     addTearDown(game.dispose);
@@ -241,6 +241,13 @@ void main() {
       for (var i = 0; i < 3; i++)
         tester.getRect(find.byType(PlayedCardsView).at(i)),
     ];
+    for (final rect in rects) {
+      expect(
+        rect.center.dx,
+        inInclusiveRange(780 * 0.15, 780 * 0.85),
+        reason: '三家出牌区都应落在牌桌中央区域',
+      );
+    }
     expect(rects[0].center.dx, lessThan(rects[1].center.dx));
     expect(rects[1].center.dx, lessThan(rects[2].center.dx));
     expect(rects[0].center.dy, lessThan(rects[1].center.dy));
@@ -250,6 +257,19 @@ void main() {
       lessThan(24),
       reason: '玩家出牌区应在牌桌正中',
     );
+    expect(
+      rects[1].center.dx - rects[0].center.dx,
+      lessThan(780 * 0.4),
+      reason: '左右两家牌堆应与玩家牌堆靠在一起，方便比较',
+    );
+
+    double tiltOf(int id) => tester
+        .widget<Transform>(find.byKey(ValueKey('pile-tilt-$id')))
+        .transform
+        .entry(1, 0);
+    expect(tiltOf(2), lessThan(-0.05), reason: '左家出牌区朝左倾斜');
+    expect(tiltOf(1), greaterThan(0.05), reason: '右家出牌区朝右倾斜');
+    expect(tiltOf(0).abs(), lessThan(0.001), reason: '玩家出牌区保持水平');
 
     game.stop();
     await tester.pump();
@@ -302,11 +322,7 @@ void main() {
     final hand = tester.getRect(find.byType(HumanHandView));
 
     expect(arena.top, lessThanOrEqualTo(GameTopBar.height + 0.5));
-    expect(
-      arena.height,
-      greaterThan(360 * 0.5),
-      reason: '小屏横屏下牌桌应拿到屏幕一半以上',
-    );
+    expect(arena.height, greaterThan(360 * 0.5), reason: '小屏横屏下牌桌应拿到屏幕一半以上');
     expect(deck.top, lessThan(GameTopBar.height), reason: '底牌内嵌在悬浮顶栏');
     expect(
       dock.height,
@@ -423,11 +439,7 @@ void main() {
       );
       for (final seat in tester.widgetList(find.byType(SeatPanel))) {
         final rect = tester.getRect(find.byWidget(seat));
-        expect(
-          chip.overlaps(rect),
-          isFalse,
-          reason: '提示不应压在座位上: $size',
-        );
+        expect(chip.overlaps(rect), isFalse, reason: '提示不应压在座位上: $size');
       }
       expect(tester.takeException(), isNull);
     }

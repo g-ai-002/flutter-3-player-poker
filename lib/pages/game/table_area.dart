@@ -64,9 +64,10 @@ class BottomCardsBar extends StatelessWidget {
   }
 }
 
-/// 牌桌中央区域：三家出牌区呈三足鼎立。
+/// 牌桌中央区域：三家出牌区聚在牌桌正中间，各自朝自家座位倾斜。
 ///
-/// 左右两家在牌桌两侧偏上，玩家出牌区贴底居中；中央不再放常驻状态文字，
+/// 左右两家的出牌区位于中央偏上并分别向左 / 右倾斜，玩家出牌区在中央偏下，
+/// 三堆牌彼此靠近，方便一眼比较三家的上一手。中央不放常驻状态文字，
 /// 轮次与提示由牌桌页的悬浮提示层承担，牌桌因此拿到完整的垂直空间。
 /// 布局完成后把三处出牌区的屏幕坐标回传给牌桌页，供 Flame 飞牌动画落点使用。
 class GameTableArea extends StatefulWidget {
@@ -187,107 +188,53 @@ class _GameTableAreaState extends State<GameTableArea> {
     );
   }
 
+  /// 左右两家出牌区朝各自座位倾斜的角度。
+  static const double _tilt = 0.14;
+
   @override
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) => _reportPileCenters());
     final provider = widget.provider;
-    final engine = provider.engine;
-    final left = engine.players[2];
-    final right = engine.players[1];
+    final left = provider.engine.players[2];
+    final right = provider.engine.players[1];
+    final leftSeat = _seatPanel(context, provider, left);
+    final rightSeat = _seatPanel(context, provider, right);
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        // 牌面随牌桌宽度线性放大到 96 像素封顶，1440p / 4K 桌面不再显示偏小的牌。
-        final cardWidth = (width / 16).clamp(34.0, 96.0);
-        final sideWidth = width * 0.3 - 18;
-        final centerWidth = width * 0.4 - 18;
-
-        final leftPile = _pile(provider, left, cardWidth, sideWidth);
-        final rightPile = _pile(provider, right, cardWidth, sideWidth);
-        final humanPile = _pile(
-          provider,
-          engine.players[0],
-          cardWidth,
-          centerWidth,
-        );
-
+        final height = constraints.maxHeight;
         if (widget.landscape) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          return Stack(
             children: [
-              Expanded(
-                flex: 3,
-                child: _SideColumn(
-                  seat: _seatPanel(context, provider, left),
-                  pile: leftPile,
-                  compact: widget.compact,
-                ),
-              ),
-              Expanded(
-                flex: 4,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    FittedBox(fit: BoxFit.scaleDown, child: humanPile),
-                    const SizedBox(height: 2),
-                  ],
-                ),
-              ),
-              Expanded(
-                flex: 3,
-                child: _SideColumn(
-                  seat: _seatPanel(context, provider, right),
-                  pile: rightPile,
-                  compact: widget.compact,
-                ),
-              ),
+              Positioned.fill(child: _stage(provider, width, height)),
+              _seatOverlay(leftSeat, width, left: 8),
+              _seatOverlay(rightSeat, width, right: 8),
             ],
           );
         }
-
         return Column(
           children: [
             SizedBox(
-              height: GameTableArea.portraitSeatHeight(
-                compact: widget.compact,
-              ),
+              height: GameTableArea.portraitSeatHeight(compact: widget.compact),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
                     padding: const EdgeInsets.only(left: 10, top: 2),
-                    child: _scaledSeat(_seatPanel(context, provider, left)),
+                    child: _scaledSeat(leftSeat),
                   ),
                   const Spacer(),
                   Padding(
                     padding: const EdgeInsets.only(right: 10, top: 2),
-                    child: _scaledSeat(_seatPanel(context, provider, right)),
+                    child: _scaledSeat(rightSeat),
                   ),
                 ],
               ),
             ),
             Expanded(
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: FittedBox(fit: BoxFit.scaleDown, child: leftPile),
-                  ),
-                  Expanded(
-                    flex: 4,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        FittedBox(fit: BoxFit.scaleDown, child: humanPile),
-                        const SizedBox(height: 2),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    flex: 3,
-                    child: FittedBox(fit: BoxFit.scaleDown, child: rightPile),
-                  ),
-                ],
+              child: LayoutBuilder(
+                builder: (context, stage) =>
+                    _stage(provider, stage.maxWidth, stage.maxHeight),
               ),
             ),
           ],
@@ -296,50 +243,108 @@ class _GameTableAreaState extends State<GameTableArea> {
     );
   }
 
-  Widget _scaledSeat(Widget seat) {
-    return FittedBox(fit: BoxFit.scaleDown, child: seat);
+  /// 三堆牌围绕牌桌中心呈三角排列：左家偏上左倾，右家偏上右倾，玩家贴底居中。
+  Widget _stage(GameProvider provider, double width, double height) {
+    // 牌面随牌桌宽度线性放大到 96 像素封顶，1440p / 4K 桌面不再显示偏小的牌。
+    final cardWidth = (width / 16).clamp(34.0, 96.0);
+    final engine = provider.engine;
+    final sideWidth = width * 0.26;
+    final leftPile = _pile(provider, engine.players[2], cardWidth, sideWidth);
+    final rightPile = _pile(provider, engine.players[1], cardWidth, sideWidth);
+    final humanPile = _pile(
+      provider,
+      engine.players[0],
+      cardWidth,
+      width * 0.42,
+    );
+    // 矮屏横屏时仍给顶部悬浮提示留出一条空隙，牌堆压低但不压住中央提示。
+    final sideTop = (height * 0.06).clamp(12.0, 36.0);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        _placePile(
+          leftPile,
+          keyId: 2,
+          left: width * 0.16,
+          top: sideTop,
+          width: width * 0.28,
+          height: height * 0.44,
+          angle: -_tilt,
+        ),
+        _placePile(
+          humanPile,
+          keyId: 0,
+          left: width * 0.28,
+          bottom: 0,
+          width: width * 0.44,
+          height: height * 0.42,
+        ),
+        _placePile(
+          rightPile,
+          keyId: 1,
+          right: width * 0.16,
+          top: sideTop,
+          width: width * 0.28,
+          height: height * 0.44,
+          angle: _tilt,
+        ),
+      ],
+    );
   }
-}
 
-/// 侧边座位：座位信息在上，出牌区紧随其下，形成牌桌左上 / 右上的一角。
-class _SideColumn extends StatelessWidget {
-  const _SideColumn({
-    required this.seat,
-    required this.pile,
-    required this.compact,
-  });
-
-  final Widget seat;
-  final Widget pile;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Column(
-        children: [
-          const SizedBox(height: 2),
-          // 座位只占牌桌上方一小条，剩下的空间留给放大的出牌区。
-          ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: compact ? 42 : 110),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: compact ? 0 : 4),
-                child: seat,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: FittedBox(fit: BoxFit.scaleDown, child: pile),
-            ),
-          ),
-        ],
+  /// 出牌区槽位：整体缩放后按座位方向旋转，牌堆中心就是飞牌动画的落点。
+  Widget _placePile(
+    Widget child, {
+    required int keyId,
+    double? left,
+    double? right,
+    double? top,
+    double? bottom,
+    required double width,
+    required double height,
+    double angle = 0,
+  }) {
+    return Positioned(
+      left: left,
+      right: right,
+      top: top,
+      bottom: bottom,
+      width: width,
+      height: height,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Transform.rotate(
+          key: ValueKey('pile-tilt-$keyId'),
+          angle: angle,
+          child: child,
+        ),
       ),
     );
+  }
+
+  /// 横屏时座位悬浮在牌桌左上 / 右上，不与中央牌堆争夺布局空间。
+  Widget _seatOverlay(
+    Widget seat,
+    double width, {
+    double? left,
+    double? right,
+  }) {
+    return Positioned(
+      left: left,
+      right: right,
+      top: 2,
+      width: width * 0.22,
+      height: widget.compact ? 40 : 96,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.topLeft,
+        child: seat,
+      ),
+    );
+  }
+
+  Widget _scaledSeat(Widget seat) {
+    return FittedBox(fit: BoxFit.scaleDown, child: seat);
   }
 }
 
