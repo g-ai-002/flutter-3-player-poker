@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_3_player_poker/models/hand_record.dart';
 import 'package:flutter_3_player_poker/models/playing_card.dart';
+import 'package:flutter_3_player_poker/pages/game/game_action_bar.dart';
+import 'package:flutter_3_player_poker/pages/game/game_hints.dart';
 import 'package:flutter_3_player_poker/pages/game/game_overlays.dart';
+import 'package:flutter_3_player_poker/pages/game/game_top_bar.dart';
 import 'package:flutter_3_player_poker/pages/game/table_area.dart';
 import 'package:flutter_3_player_poker/pages/game_page.dart';
 import 'package:flutter_3_player_poker/pages/hand_history_page.dart';
@@ -17,6 +20,7 @@ import 'package:flutter_3_player_poker/services/stats_service.dart';
 import 'package:flutter_3_player_poker/services/storage_service.dart';
 import 'package:flutter_3_player_poker/theme/app_theme.dart';
 import 'package:flutter_3_player_poker/widgets/played_cards_view.dart';
+import 'package:flutter_3_player_poker/widgets/seat_panel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -274,6 +278,187 @@ void main() {
 
     game.stop();
     await tester.pump();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('顶栏、底牌与操作条悬浮，牌桌拿满剩余空间', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+    addTearDown(game.dispose);
+    game.newGame();
+    takeLandlord(game);
+
+    tester.view.physicalSize = const Size(780, 360);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final arena = tester.getRect(find.byType(GameTableArea));
+    final deck = tester.getRect(find.byType(BottomCardsBar));
+    final dock = tester.getRect(find.byType(GameActionBar));
+    final hand = tester.getRect(find.byType(HumanHandView));
+
+    expect(arena.top, lessThanOrEqualTo(GameTopBar.height + 0.5));
+    expect(
+      arena.height,
+      greaterThan(360 * 0.5),
+      reason: '小屏横屏下牌桌应拿到屏幕一半以上',
+    );
+    expect(deck.top, lessThan(GameTopBar.height), reason: '底牌内嵌在悬浮顶栏');
+    expect(
+      dock.height,
+      closeTo(GameActionBar.height, 0.01),
+      reason: '操作 dock 高度固定',
+    );
+    expect(dock.top, closeTo(arena.bottom, 0.01), reason: '操作条紧贴牌桌下沿，不额外占位');
+    expect(hand.top, closeTo(dock.bottom, 0.01), reason: '手牌区紧贴操作条');
+    expect(hand.bottom, closeTo(360, 0.01), reason: '手牌贴住屏幕底部');
+
+    game.stop();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('悬浮提示不推动牌桌、手牌与操作条', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+    addTearDown(game.dispose);
+    game.newGame();
+    takeLandlord(game);
+
+    tester.view.physicalSize = const Size(780, 360);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final arena = tester.getRect(find.byType(GameTableArea));
+    final dock = tester.getRect(find.byType(GameActionBar));
+    final hand = tester.getRect(find.byType(HumanHandView));
+
+    game.handleTurnTimeout();
+    await tester.pump();
+    expect(find.text('出牌超时，已自动出最小单张'), findsOneWidget);
+
+    final toast = tester.getRect(find.byType(FeedbackToast));
+    expect(toast.bottom, lessThanOrEqualTo(dock.top), reason: '提示不压住操作条与手牌');
+    expect(tester.getRect(find.byType(GameTableArea)), arena);
+    expect(tester.getRect(find.byType(GameActionBar)), dock);
+    expect(tester.getRect(find.byType(HumanHandView)), hand);
+
+    await tester.pump(const Duration(milliseconds: 2300));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(FeedbackToast), findsNothing);
+    expect(tester.getRect(find.byType(GameTableArea)), arena);
+
+    game.stop();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('叫分到出牌的阶段切换不会移动牌桌', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 200);
+    addTearDown(game.dispose);
+    game.newGame();
+    game.engine.currentPlayer = 0;
+
+    tester.view.physicalSize = const Size(780, 360);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final biddingArena = tester.getRect(find.byType(GameTableArea));
+    final biddingDock = tester.getRect(find.byType(GameActionBar));
+
+    await tester.tap(find.text('3 分'));
+    await tester.pump();
+    await tester.tap(find.text('不加倍'));
+    await tester.pump();
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    expect(game.engine.phase, GamePhase.playing);
+
+    expect(
+      tester.getRect(find.byType(GameTableArea)),
+      biddingArena,
+      reason: '叫分 / 加倍阶段也保留同高度 dock，切到出牌不该推挤牌桌',
+    );
+    expect(tester.getRect(find.byType(GameActionBar)), biddingDock);
+
+    game.stop();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('悬浮提示避开两侧座位与屏幕外', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+    addTearDown(game.dispose);
+    game.newGame();
+    takeLandlord(game);
+
+    for (final size in [const Size(780, 360), const Size(360, 780)]) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(
+        wrapApp(const GamePage(), settings: settings, game: game),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final chip = tester.getRect(find.byType(TurnChip));
+      expect(chip.left, greaterThanOrEqualTo(0), reason: 'size $size');
+      expect(chip.right, lessThanOrEqualTo(size.width), reason: 'size $size');
+      expect(
+        (chip.center.dx - size.width / 2).abs(),
+        lessThan(12),
+        reason: '轮次提示应居中悬浮: $size',
+      );
+      for (final seat in tester.widgetList(find.byType(SeatPanel))) {
+        final rect = tester.getRect(find.byWidget(seat));
+        expect(
+          chip.overlaps(rect),
+          isFalse,
+          reason: '提示不应压在座位上: $size',
+        );
+      }
+      expect(tester.takeException(), isNull);
+    }
+
+    game.stop();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('极窄窗口下悬浮顶栏与操作条不溢出', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+    addTearDown(game.dispose);
+    game.newGame();
+    takeLandlord(game);
+
+    tester.view.physicalSize = const Size(320, 480);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('出牌'), findsOneWidget);
+    expect(
+      tester.getRect(find.byType(GameActionBar)).height,
+      closeTo(GameActionBar.height, 0.01),
+    );
+
+    game.stop();
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
   });
