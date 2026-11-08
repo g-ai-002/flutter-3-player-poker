@@ -73,9 +73,6 @@ class DdzTableGame extends FlameGame {
       ..addAll(targets);
   }
 
-  /// 当前场景里的飞牌组件，供测试核对牌数。
-  int get flightCount => children.whereType<CardFlight>().length;
-
   Offset seatPoint(int player) {
     return switch (player) {
       1 => Offset(size.x * 0.86, size.y * 0.26),
