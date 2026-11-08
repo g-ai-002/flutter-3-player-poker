@@ -10,7 +10,6 @@ import '../utils/formatters.dart';
 import '../widgets/page_frame.dart';
 import '../widgets/playing_card_view.dart';
 import '../widgets/section_card.dart';
-import 'replay_page.dart';
 
 /// 牌谱详情：结算摘要 + 逐步动作，可复制或导出为文本。
 class HandRecordPage extends StatelessWidget {
@@ -62,18 +61,6 @@ class HandRecordPage extends StatelessWidget {
                     fontSize: 11,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: record.actions.isEmpty
-                      ? null
-                      : () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => ReplayPage(record: record),
-                          ),
-                        ),
-                  icon: const Icon(Icons.play_circle_outline, size: 16),
-                  label: const Text('复盘'),
                 ),
               ],
             ),
@@ -135,11 +122,7 @@ class _SummaryCard extends StatelessWidget {
     final won = record.humanWon;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outline),
-      ),
+      decoration: surfacePanel(scheme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

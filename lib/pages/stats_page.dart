@@ -231,11 +231,7 @@ class _StatTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outline),
-      ),
+      decoration: surfacePanel(scheme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

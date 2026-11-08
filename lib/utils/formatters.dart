@@ -14,5 +14,8 @@ String formatLogTimestamp(DateTime time) =>
     '${pad2(time.hour)}:${pad2(time.minute)}:${pad2(time.second)}.'
     '${time.millisecond.toString().padLeft(3, '0')}';
 
+/// 带正负号的分数文案：结算、牌谱与统计共用。
+String signed(int value) => '${value >= 0 ? '+' : ''}$value';
+
 String formatLogLine(DateTime time, String level, String message) =>
     '[${formatLogTimestamp(time)}][$level] $message';

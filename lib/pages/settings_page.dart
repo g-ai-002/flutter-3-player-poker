@@ -75,31 +75,11 @@ class SettingsPage extends StatelessWidget {
             SectionCard(
               title: '外观',
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('深色模式', style: TextStyle(fontSize: 14)),
-                          const SizedBox(height: 3),
-                          Text(
-                            '牌桌始终使用深色绒面，其余页面跟随此开关',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch.adaptive(
-                      value: settings.darkMode,
-                      onChanged: settings.setDarkMode,
-                    ),
-                  ],
+                _SwitchRow(
+                  label: '深色模式',
+                  description: '牌桌始终使用深色绒面，其余页面跟随此开关',
+                  value: settings.darkMode,
+                  onChanged: settings.setDarkMode,
                 ),
               ],
             ),

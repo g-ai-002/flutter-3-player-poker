@@ -95,6 +95,20 @@ class SeatPanel extends StatelessWidget {
     ),
   );
 
+  /// 就地徽标：地主金色，明牌绿色描边；横竖屏两套座位共用同一份样式。
+  static const Widget _landlordBadge = _SeatBadge(
+    text: '地主',
+    background: kGold,
+    foreground: Color(0xFF3A2606),
+    borderColor: Color(0xFF5A3D0C),
+  );
+  static const Widget _revealedBadge = _SeatBadge(
+    text: '明牌',
+    background: Color(0xFF2C4A38),
+    foreground: kGoldSoft,
+    borderColor: Color(0xB3D8B56A),
+  );
+
   @override
   Widget build(BuildContext context) {
     final status = _status;
@@ -112,27 +126,9 @@ class SeatPanel extends StatelessWidget {
               children: [
                 _avatar(36, 15),
                 if (player.isLandlord)
-                  const Positioned(
-                    right: -12,
-                    top: -6,
-                    child: _SeatBadge(
-                      text: '地主',
-                      background: kGold,
-                      foreground: Color(0xFF3A2606),
-                      borderColor: Color(0xFF5A3D0C),
-                    ),
-                  ),
+                  const Positioned(right: -12, top: -6, child: _landlordBadge),
                 if (revealed)
-                  Positioned(
-                    left: -12,
-                    top: -6,
-                    child: _SeatBadge(
-                      text: '明牌',
-                      background: const Color(0xFF2C4A38),
-                      foreground: kGoldSoft,
-                      borderColor: kGold.withValues(alpha: 0.7),
-                    ),
-                  ),
+                  const Positioned(left: -12, top: -6, child: _revealedBadge),
               ],
             ),
             const SizedBox(height: 4),
@@ -228,22 +224,9 @@ class SeatPanel extends StatelessWidget {
                     ),
                     if (player.isLandlord) ...[
                       const SizedBox(width: 3),
-                      const _SeatBadge(
-                        text: '地主',
-                        background: kGold,
-                        foreground: Color(0xFF3A2606),
-                        borderColor: Color(0xFF5A3D0C),
-                      ),
+                      _landlordBadge,
                     ],
-                    if (revealed) ...[
-                      const SizedBox(width: 3),
-                      const _SeatBadge(
-                        text: '明牌',
-                        background: Color(0xFF2C4A38),
-                        foreground: kGoldSoft,
-                        borderColor: kGold,
-                      ),
-                    ],
+                    if (revealed) ...[const SizedBox(width: 3), _revealedBadge],
                   ],
                 ),
                 const SizedBox(height: 1),

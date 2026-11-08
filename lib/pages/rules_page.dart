@@ -93,23 +93,25 @@ class RulesPage extends StatelessWidget {
     );
   }
 
+  /// 流程与操作要点：标签 + 一句说明，由同一套行组件渲染。
+  static const _flow = <(String, String)>[
+    ('叫分', '叫分必须高于当前最高分，叫 3 分立即成为地主；都不叫则重新发牌。'),
+    ('加倍', '地主先选择是否加倍，两名农民随后各自选择，每次加倍倍数 ×2。'),
+    ('明牌', '地主可在自己的加倍回合亮出手牌，本局倍数再 ×2，对手能看到其剩余手牌。'),
+    ('记牌', '顶栏的眼睛按钮在上方弹出记牌器，实时查看两家剩余的牌；地主明牌后其手牌不再计入剩余。'),
+    ('选牌', '单击牌面可切换选中，横向拖动可连续选中或取消一片手牌，适合快速挑顺子与连对。'),
+    ('倒计时', '每次出牌有 20 秒，超时自动不出；轮到自己领出时超时会自动打出最小单张。'),
+    ('声音', '音效与背景音乐全部由程序实时合成，可在设置页分别关闭。'),
+  ];
+
   Widget _flowNote(ColorScheme scheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _flowRow(scheme, '叫分', '叫分必须高于当前最高分，叫 3 分立即成为地主；都不叫则重新发牌。'),
-        const SizedBox(height: 6),
-        _flowRow(scheme, '加倍', '地主先选择是否加倍，两名农民随后各自选择，每次加倍倍数 ×2。'),
-        const SizedBox(height: 6),
-        _flowRow(scheme, '明牌', '地主可在自己的加倍回合亮出手牌，本局倍数再 ×2，对手能看到其剩余手牌。'),
-        const SizedBox(height: 6),
-        _flowRow(scheme, '记牌', '顶栏的眼睛按钮在上方弹出记牌器，实时查看两家剩余的牌；地主明牌后其手牌不再计入剩余。'),
-        const SizedBox(height: 6),
-        _flowRow(scheme, '选牌', '单击牌面可切换选中，横向拖动可连续选中或取消一片手牌，适合快速挑顺子与连对。'),
-        const SizedBox(height: 6),
-        _flowRow(scheme, '倒计时', '每次出牌有 20 秒，超时自动不出；轮到自己领出时超时会自动打出最小单张。'),
-        const SizedBox(height: 6),
-        _flowRow(scheme, '声音', '音效与背景音乐全部由程序实时合成，可在设置页分别关闭。'),
+        for (final (index, note) in _flow.indexed) ...[
+          if (index > 0) const SizedBox(height: 6),
+          _flowRow(scheme, note.$1, note.$2),
+        ],
       ],
     );
   }
@@ -152,11 +154,7 @@ class RulesPage extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: scheme.outline),
-      ),
+      decoration: surfacePanel(scheme, radius: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -194,11 +192,7 @@ class _RuleRow extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: scheme.outline),
-      ),
+      decoration: surfacePanel(scheme, radius: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

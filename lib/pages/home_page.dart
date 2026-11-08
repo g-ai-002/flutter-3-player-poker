@@ -108,20 +108,7 @@ class HomePage extends StatelessWidget {
         const SizedBox(height: 18),
         _StartButton(onPressed: () => _startGame(context)),
         const SizedBox(height: 18),
-        Row(
-          children: [
-            for (final (index, item) in _navItems.indexed) ...[
-              if (index > 0) const SizedBox(width: 8),
-              Expanded(
-                child: _NavTile(
-                  icon: item.$1,
-                  label: item.$2,
-                  onTap: () => _open(context, item.$3),
-                ),
-              ),
-            ],
-          ],
-        ),
+        _navTiles(context),
         const SizedBox(height: 26),
         _footer(scheme),
       ],
@@ -155,7 +142,7 @@ class HomePage extends StatelessWidget {
               SizedBox(height: dense ? 10 : 14),
               _StartButton(onPressed: () => _startGame(context), dense: dense),
               SizedBox(height: dense ? 10 : 14),
-              _navGrid(context, dense: dense),
+              _navTiles(context, perRow: 2, dense: dense),
               SizedBox(height: dense ? 14 : 22),
               _footer(scheme),
             ],
@@ -190,35 +177,32 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  /// 双栏时的入口 2×2 网格：右侧栏较窄，两列比一排四个更易点。
-  Widget _navGrid(BuildContext context, {required bool dense}) {
-    Widget tile(int index) {
-      final item = _navItems[index];
-      return _NavTile(
-        icon: item.$1,
-        label: item.$2,
-        dense: dense,
-        onTap: () => _open(context, item.$3),
-      );
-    }
-
+  /// 入口按钮：单列页排成一行，宽屏右栏拆成 2×2 两行，窄栏更易点。
+  Widget _navTiles(BuildContext context, {int perRow = 4, bool dense = false}) {
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(child: tile(0)),
-            const SizedBox(width: 8),
-            Expanded(child: tile(1)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(child: tile(2)),
-            const SizedBox(width: 8),
-            Expanded(child: tile(3)),
-          ],
-        ),
+        for (var start = 0; start < _navItems.length; start += perRow) ...[
+          if (start > 0) const SizedBox(height: 8),
+          Row(
+            children: [
+              for (
+                var i = start;
+                i < math.min(start + perRow, _navItems.length);
+                i++
+              ) ...[
+                if (i > start) const SizedBox(width: 8),
+                Expanded(
+                  child: _NavTile(
+                    icon: _navItems[i].$1,
+                    label: _navItems[i].$2,
+                    dense: dense,
+                    onTap: () => _open(context, _navItems[i].$3),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -505,11 +489,7 @@ class _NavTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: EdgeInsets.symmetric(vertical: dense ? 10 : 14),
-        decoration: BoxDecoration(
-          color: scheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: scheme.outline),
-        ),
+        decoration: surfacePanel(scheme),
         child: Column(
           children: [
             Icon(icon, size: dense ? 19 : 21, color: scheme.primary),

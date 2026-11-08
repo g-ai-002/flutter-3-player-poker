@@ -41,6 +41,14 @@ ButtonStyle tableGhostButtonStyle({
   );
 }
 
+/// 浅色内容卡片的统一描边：设置、统计、牌谱与玩法页共用。
+BoxDecoration surfacePanel(ColorScheme scheme, {double radius = 16}) =>
+    BoxDecoration(
+      color: scheme.surface,
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: scheme.outline),
+    );
+
 ThemeData buildLightTheme({String? fontFamily}) {
   const scheme = ColorScheme.light(
     primary: Color(0xFF1F6B46),
