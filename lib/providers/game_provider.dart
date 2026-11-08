@@ -161,14 +161,26 @@ class GameProvider extends ChangeNotifier {
   }
 
   void stop() {
-    _resetTurnState();
+    shutdown();
+    _notify();
+  }
+
+  /// 页面关闭时的静默收尾：取消 AI 与提示定时器、停止背景音乐，不通知界面。
+  ///
+  /// 与 [stop] 的区别是不触发 `notifyListeners`，可以在 Widget 的 dispose 里安全调用，
+  /// 保证退出牌桌后不残留任何后台任务。
+  void shutdown() {
+    driver.cancel();
+    _feedbackTimer?.cancel();
+    _feedback = null;
+    _selectedIds.clear();
+    _clockSerial = -1;
     if (engine.phase == GamePhase.bidding ||
         engine.phase == GamePhase.doubling ||
         engine.phase == GamePhase.playing) {
       engine.phase = GamePhase.idle;
     }
     AudioService.instance.stopBgm();
-    _notify();
   }
 
   void _resetTurnState() {

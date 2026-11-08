@@ -52,115 +52,94 @@ class GameTopBar extends StatelessWidget {
               : '底分 ${engine.baseScore} · ×${engine.multiplier}';
           return Row(
             children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _GlassIcon(
-                          icon: Icons.arrow_back_ios_new,
-                          tooltip: '返回',
-                          onPressed: onBack,
-                        ),
-                        if (!narrow) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            '斗地主',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1,
-                              shadows: const [
-                                Shadow(color: Color(0x66000000), blurRadius: 6),
-                              ],
-                            ),
-                          ),
-                        ],
+              _cluster(Alignment.centerLeft, [
+                _GlassIcon(
+                  icon: Icons.arrow_back_ios_new,
+                  tooltip: '返回',
+                  onPressed: onBack,
+                ),
+                if (!narrow) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    '斗地主',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                      shadows: const [
+                        Shadow(color: Color(0x66000000), blurRadius: 6),
                       ],
                     ),
                   ),
-                ),
-              ),
+                ],
+              ]),
               BottomCardsBar(engine: engine, compact: narrow),
               const SizedBox(width: 8),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _InfoChip(
-                          text: multiplier,
-                          maxWidth: narrow ? 84 : 190,
-                        ),
-                        const SizedBox(width: 4),
-                        _GlassIcon(
-                          tooltip: counterOpen ? '隐藏记牌器' : '记牌器',
-                          icon: counterOpen
-                              ? Icons.visibility
-                              : Icons.visibility_outlined,
-                          onPressed: onToggleCounter,
-                          active: counterOpen,
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 2),
-                          child: PopupMenuButton<String>(
-                            color: const Color(0xFF163526),
-                            padding: EdgeInsets.zero,
-                            tooltip: '更多',
-                            constraints: const BoxConstraints(
-                              minWidth: 30,
-                              minHeight: 30,
-                            ),
-                            iconSize: 20,
-                            icon: const Icon(
-                              Icons.more_horiz,
-                              color: Colors.white70,
-                            ),
-                            onSelected: (value) {
-                              if (value == 'restart') onRestart();
-                              if (value == 'rules') {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => const RulesPage(),
-                                  ),
-                                );
-                              }
-                              if (value == 'leave') onBack();
-                            },
-                            itemBuilder: (context) => const [
-                              PopupMenuItem(
-                                value: 'restart',
-                                child: Text('重新开始', style: _menuText),
-                              ),
-                              PopupMenuItem(
-                                value: 'rules',
-                                child: Text('玩法说明', style: _menuText),
-                              ),
-                              PopupMenuItem(
-                                value: 'leave',
-                                child: Text('返回主页', style: _menuText),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+              _cluster(Alignment.centerRight, [
+                _InfoChip(text: multiplier, maxWidth: narrow ? 84 : 190),
+                const SizedBox(width: 4),
+                _GlassIcon(
+                  tooltip: counterOpen ? '隐藏记牌器' : '记牌器',
+                  icon: counterOpen
+                      ? Icons.visibility
+                      : Icons.visibility_outlined,
+                  onPressed: onToggleCounter,
+                  active: counterOpen,
                 ),
-              ),
+                _menu(context),
+              ]),
             ],
           );
         },
       ),
+    );
+  }
+
+  /// 顶栏两侧的信息位：可用宽度不足时整体缩放，底牌胶囊始终居中。
+  Widget _cluster(Alignment alignment, List<Widget> children) => Expanded(
+    child: Align(
+      alignment: alignment,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: alignment,
+        child: Row(mainAxisSize: MainAxisSize.min, children: children),
+      ),
+    ),
+  );
+
+  Widget _menu(BuildContext context) {
+    void go(String value) {
+      if (value == 'restart') onRestart();
+      if (value == 'leave') onBack();
+      if (value == 'rules') {
+        Navigator.of(context)
+            .push(MaterialPageRoute<void>(builder: (_) => const RulesPage()));
+      }
+    }
+
+    return PopupMenuButton<String>(
+      color: const Color(0xFF163526),
+      padding: EdgeInsets.zero,
+      tooltip: '更多',
+      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+      iconSize: 20,
+      icon: const Icon(Icons.more_horiz, color: Colors.white70),
+      onSelected: go,
+      itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: 'restart',
+          child: Text('重新开始', style: _menuText),
+        ),
+        PopupMenuItem(
+          value: 'rules',
+          child: Text('玩法说明', style: _menuText),
+        ),
+        PopupMenuItem(
+          value: 'leave',
+          child: Text('返回主页', style: _menuText),
+        ),
+      ],
     );
   }
 }

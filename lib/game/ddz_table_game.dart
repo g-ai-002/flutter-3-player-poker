@@ -49,10 +49,18 @@ class DdzTableGame extends FlameGame {
     if (introDeal) _playDeal();
   }
 
+  bool _detached = false;
+
+  /// 牌桌页销毁时回收：退订事件总线后再交给 Flame 停止游戏循环。
+  ///
+  /// 页面关闭后对局仍可能发出事件，退订后不会再有组件被添加到一个不再渲染的场景里。
   @override
-  void onRemove() {
-    bus.unsubscribe(_onEvent);
-    super.onRemove();
+  void detach() {
+    if (!_detached) {
+      _detached = true;
+      bus.unsubscribe(_onEvent);
+    }
+    super.detach();
   }
 
   /// 三家出牌区的相对坐标，由 Flutter 布局回传；未回传前使用经验位置。

@@ -20,8 +20,8 @@ import 'game/table_area.dart';
 
 /// 牌桌页：组合 Flame 视觉层与 Flutter 交互层，并负责页面级对话框。
 ///
-/// 牌桌拿到的空间是整屏只扣掉「悬浮顶栏固定高度 + 底部操作 dock + 手牌」后的全部剩余，
-/// 轮次、上一手与临时反馈都悬浮在牌桌上方，不参与布局，也不会推挤牌桌。
+/// 牌桌网格始终居中，顶部让出悬浮顶栏与提示带，底部让出操作 dock 与手牌；
+/// 轮次、上一手、残局与临时反馈都悬浮在网格四周，不参与布局，也不会推挤牌桌。
 class GamePage extends StatefulWidget {
   const GamePage({super.key});
 
@@ -31,35 +31,36 @@ class GamePage extends StatefulWidget {
 
 class _GamePageState extends State<GamePage> {
   final GlobalKey _gameKey = GlobalKey();
+  late final GameProvider _provider;
   DdzTableGame? _table;
   bool _counterOpen = false;
 
   @override
   void initState() {
     super.initState();
+    _provider = context.read<GameProvider>();
     enterGameFullscreen();
-    final provider = context.read<GameProvider>();
     _table = DdzTableGame(
-      bus: provider.events,
+      bus: _provider.events,
       introDeal: true,
-      logicHz: provider.settings.logicRate.hz,
+      logicHz: _provider.settings.logicRate.hz,
     );
-    if (provider.phase == GamePhase.idle) {
-      provider.newGame();
-    }
+    if (_provider.phase == GamePhase.idle) _provider.newGame();
   }
 
   @override
   void dispose() {
+    // 静默收尾：取消 AI / 提示定时器与背景音乐，再停掉 Flame 循环并退订事件。
+    _provider.shutdown();
+    _table?.detach();
     exitGameFullscreen();
     super.dispose();
   }
 
   Future<void> _leave() async {
-    final provider = context.read<GameProvider>();
-    if (provider.phase == GamePhase.bidding ||
-        provider.phase == GamePhase.doubling ||
-        provider.phase == GamePhase.playing) {
+    if (_provider.phase == GamePhase.bidding ||
+        _provider.phase == GamePhase.doubling ||
+        _provider.phase == GamePhase.playing) {
       final leave = await showConfirmDialog(
         context,
         title: '离开对局？',
@@ -69,29 +70,28 @@ class _GamePageState extends State<GamePage> {
       );
       if (!leave) return;
     }
-    provider.stop();
+    _provider.stop();
     if (mounted) Navigator.of(context).pop();
   }
 
   Future<void> _restart() async {
-    final provider = context.read<GameProvider>();
     final ok = await showConfirmDialog(
       context,
       title: '重新开始？',
       message: '将放弃当前手牌，重新发牌。',
       confirmLabel: '重新开始',
     );
-    if (ok) provider.newGame();
+    if (ok) _provider.newGame();
   }
 
   /// 把出牌区的屏幕坐标换算成牌桌内的相对坐标，飞牌动画据此落地。
   void _syncPileCenters(Map<int, Offset> centers) {
     final box = _gameKey.currentContext?.findRenderObject() as RenderBox?;
     final table = _table;
-    if (box == null || !box.hasSize || table == null) return;
+    if (box == null || !box.hasSize) return;
     final size = box.size;
     if (size.isEmpty) return;
-    table.setPileAnchors({
+    table?.setPileAnchors({
       for (final entry in centers.entries)
         if (box.globalToLocal(entry.value) case final local)
           entry.key: Offset(
@@ -117,15 +117,12 @@ class _GamePageState extends State<GamePage> {
             final compact = constraints.maxHeight < 560;
             final landscape = constraints.maxWidth > constraints.maxHeight;
             final narrow = constraints.maxWidth < GameLayout.narrowWidth;
+            final sides = GameLayout.sideHints(constraints.maxWidth);
             // 横屏全屏时刘海与挖孔都在左右两侧，悬浮层统一避开安全区。
             final padding = MediaQuery.paddingOf(context);
             final safeTop = padding.top;
             final safeLeft = 8 + padding.left;
             final safeRight = 8 + padding.right;
-            // 竖屏时座位条横在牌桌上沿，提示层顺势下移，始终避开两侧座位。
-            final seatInset = landscape
-                ? 0.0
-                : GameTableArea.portraitSeatHeight(compact: compact) + 2;
             return Stack(
               children: [
                 Positioned.fill(
@@ -133,7 +130,6 @@ class _GamePageState extends State<GamePage> {
                     child: GameWidget(key: _gameKey, game: table),
                   ),
                 ),
-                // 牌桌与底部交互区：只让出悬浮顶栏的固定高度，其余空间全部给牌桌。
                 SafeArea(
                   child: Column(
                     children: [
@@ -147,11 +143,26 @@ class _GamePageState extends State<GamePage> {
                           padding: const EdgeInsets.only(
                             top: GameTopBar.height,
                           ),
-                          child: GameTableArea(
-                            provider: provider,
-                            landscape: landscape,
-                            compact: compact,
-                            onPileCenters: _syncPileCenters,
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: GameTableArea(
+                                  provider: provider,
+                                  landscape: landscape,
+                                  compact: compact,
+                                  topInset: GameLayout.hintBand(sides: sides),
+                                  onPileCenters: _syncPileCenters,
+                                ),
+                              ),
+                              if (!_counterOpen)
+                                Positioned.fill(
+                                  child: GameHints(
+                                    provider: provider,
+                                    showSelection: narrow,
+                                    sides: sides,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ),
@@ -172,14 +183,7 @@ class _GamePageState extends State<GamePage> {
                         setState(() => _counterOpen = !_counterOpen),
                   ),
                 ),
-                // 提示层与记牌器都贴在悬浮顶栏下方，互斥显示避免文字叠加。
-                if (!_counterOpen)
-                  Positioned(
-                    top: safeTop + GameTopBar.height + 2 + seatInset,
-                    left: safeLeft + 4,
-                    right: safeRight + 4,
-                    child: GameHints(provider: provider, showSelection: narrow),
-                  ),
+                // 记牌器与提示层互斥显示，避免文字叠加。
                 if (_counterOpen)
                   Positioned(
                     top: safeTop + GameTopBar.height + 2,

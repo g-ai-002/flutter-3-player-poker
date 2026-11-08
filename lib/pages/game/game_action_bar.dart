@@ -9,7 +9,7 @@ import 'game_layout.dart';
 
 /// 底部操作 dock：提示 / 不出 / 出牌三个按钮居中，始终占据固定高度。
 ///
-/// 叫分、加倍阶段也保留同高度的空 dock，出牌阶段的提示与选牌文案只在
+/// 叫分、加倍阶段也保留同高度的空 dock，出牌阶段的倒计时与牌型说明只在
 /// 左右两侧的信息位内变化，因此按钮、手牌与牌桌都不会发生位移。
 class GameActionBar extends StatelessWidget {
   const GameActionBar({super.key, required this.provider});
@@ -24,42 +24,11 @@ class GameActionBar extends StatelessWidget {
     if (provider.phase != GamePhase.playing) {
       return const SizedBox(width: double.infinity, height: height);
     }
-    final selected = provider.selectedCombo;
+    final narrow = MediaQuery.sizeOf(context).width < GameLayout.narrowWidth;
     final empty = provider.selectedCards.isEmpty;
-    final label = empty ? '请选择要出的牌' : selected?.description ?? '牌型不合法';
-    final labelText = Text(
-      label,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      textAlign: TextAlign.right,
-      style: TextStyle(
-        color: empty ? Colors.white.withValues(alpha: 0.55) : kGoldSoft,
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-      ),
-    );
-    final buttons = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _ActionButton(
-          label: '提示',
-          onPressed: provider.isHumanTurn ? provider.hint : null,
-          outlined: true,
-        ),
-        const SizedBox(width: 6),
-        _ActionButton(
-          label: '不出',
-          onPressed: provider.canPass ? provider.pass : null,
-          outlined: true,
-        ),
-        const SizedBox(width: 6),
-        _ActionButton(
-          label: '出牌',
-          onPressed: provider.canPlay ? provider.playSelected : null,
-        ),
-      ],
-    );
-
+    final label = empty
+        ? '请选择要出的牌'
+        : provider.selectedCombo?.description ?? '牌型不合法';
     return SizedBox(
       height: height,
       child: DecoratedBox(
@@ -72,63 +41,88 @@ class GameActionBar extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              // 窄屏放不下「倒计时 + 说明」：说明改由顶部悬浮提示展示。
-              final narrow = constraints.maxWidth < GameLayout.narrowWidth;
-              return Row(
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerRight,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (provider.isHumanTurn) ...[
-                              TurnCountdown(
-                                seconds: provider.turnSecondsLeft,
-                                compact: true,
-                              ),
-                              if (!narrow) const SizedBox(width: 8),
-                            ],
-                            if (!narrow) labelText,
-                          ],
+          child: Row(
+            children: [
+              _side(
+                Alignment.centerRight,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (provider.isHumanTurn) ...[
+                      TurnCountdown(
+                        seconds: provider.turnSecondsLeft,
+                        compact: true,
+                      ),
+                      if (!narrow) const SizedBox(width: 8),
+                    ],
+                    if (!narrow)
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: empty
+                              ? Colors.white.withValues(alpha: 0.55)
+                              : kGoldSoft,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              _buttons(),
+              _side(
+                Alignment.centerLeft,
+                Padding(
+                  padding: const EdgeInsets.only(left: 10),
+                  child: Text(
+                    '${provider.humanHand.length} 张',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.4),
+                      fontSize: 10,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  buttons,
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 10),
-                          child: Text(
-                            '${provider.humanHand.length} 张',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.4),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+
+  /// 三个操作按钮：提示与不出为描边款，出牌为主按钮。
+  Widget _buttons() {
+    Widget ghost(String label, VoidCallback? onPressed) =>
+        _ActionButton(label: label, onPressed: onPressed, outlined: true);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ghost('提示', provider.isHumanTurn ? provider.hint : null),
+        const SizedBox(width: 6),
+        ghost('不出', provider.canPass ? provider.pass : null),
+        const SizedBox(width: 6),
+        _ActionButton(
+          label: '出牌',
+          onPressed: provider.canPlay ? provider.playSelected : null,
+        ),
+      ],
+    );
+  }
+
+  /// 两侧信息位：各自占一半可用宽度，放不下时整体缩放而不是挤压按钮。
+  Widget _side(Alignment alignment, Widget child) => Expanded(
+    child: Align(
+      alignment: alignment,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: alignment,
+        child: child,
+      ),
+    ),
+  );
 }
 
 class _ActionButton extends StatelessWidget {
@@ -144,22 +138,24 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final button = outlined
-        ? OutlinedButton(
-            onPressed: onPressed,
-            style: tableGhostButtonStyle(
-              enabled: onPressed != null,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              foreground: Colors.white,
+    return SizedBox(
+      height: 38,
+      child: outlined
+          ? OutlinedButton(
+              onPressed: onPressed,
+              style: tableGhostButtonStyle(
+                enabled: onPressed != null,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                foreground: Colors.white,
+              ),
+              child: Text(label),
+            )
+          : FilledButton(
+              onPressed: onPressed,
+              style: goldButtonStyle(shape: const StadiumBorder()),
+              child: Text(label),
             ),
-            child: Text(label),
-          )
-        : FilledButton(
-            onPressed: onPressed,
-            style: goldButtonStyle(shape: const StadiumBorder()),
-            child: Text(label),
-          );
-    return SizedBox(height: 38, child: button);
+    );
   }
 }
 

@@ -21,6 +21,9 @@ class TableEventBus {
   final List<TableEvent> _pending = [];
   final List<void Function(TableEvent event)> _listeners = [];
 
+  /// 当前订阅者数量：牌桌销毁后应回到 0，用于确认没有残留监听。
+  int get listenerCount => _listeners.length;
+
   void emit(TableEvent event) {
     for (final listener in List.of(_listeners)) {
       listener(event);

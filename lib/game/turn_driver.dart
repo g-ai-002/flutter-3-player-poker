@@ -48,6 +48,9 @@ class TurnDriver {
 
   int? get thinkingPlayer => _thinkingPlayer;
 
+  /// 是否还有等待中的 AI 定时器：退出牌桌后必须为 false。
+  bool get isScheduled => _timer?.isActive ?? false;
+
   /// 依据当前阶段安排下一步：人类回合立即交还控制权，AI 回合延时决策。
   void schedule() {
     _timer?.cancel();

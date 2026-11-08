@@ -38,6 +38,9 @@ class AudioService {
   bool get soundEnabled => _soundEnabled;
   bool get musicEnabled => _musicEnabled;
 
+  /// 背景音乐是否处于请求播放状态：退出牌桌后必须为 false。
+  bool get bgmRequested => _bgmRequested;
+
   SoLoud get _soloud => SoLoud.instance;
 
   /// 测试环境没有原生音频通道，也不应留下播放器资源。

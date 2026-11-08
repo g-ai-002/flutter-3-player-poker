@@ -897,7 +897,6 @@ void main() {
     expect(find.text('出牌记录'), findsOneWidget);
     expect(find.text('你 叫 3 分'), findsOneWidget);
     expect(find.text('你 明牌，倍数 ×6'), findsOneWidget);
-    expect(find.text('复盘'), findsOneWidget);
     expect(find.text('复制牌谱'), findsOneWidget);
   });
 }

@@ -50,14 +50,6 @@ class BottomCardsBar extends StatelessWidget {
                 faceDown: !revealed,
               ),
             ),
-          if (engine.bottomCards.isEmpty)
-            Text(
-              '待发牌',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.35),
-                fontSize: 9,
-              ),
-            ),
         ],
       ),
     );
@@ -76,12 +68,16 @@ class GameTableArea extends StatefulWidget {
     required this.provider,
     required this.landscape,
     this.compact = false,
+    this.topInset = 0,
     this.onPileCenters,
   });
 
   final GameProvider provider;
   final bool landscape;
   final bool compact;
+
+  /// 网格上方要让给悬浮提示带的高度：提示带不参与牌桌页布局，但网格不压提示。
+  final double topInset;
 
   /// 三家出牌区的全局坐标（0 玩家、1 右侧、2 左侧）。
   final ValueChanged<Map<int, Offset>>? onPileCenters;
@@ -199,47 +195,52 @@ class _GameTableAreaState extends State<GameTableArea> {
     final right = provider.engine.players[1];
     final leftSeat = _seatPanel(context, provider, left);
     final rightSeat = _seatPanel(context, provider, right);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final height = constraints.maxHeight;
-        if (widget.landscape) {
-          return Stack(
+    return Padding(
+      padding: EdgeInsets.only(top: widget.topInset),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final height = constraints.maxHeight;
+          if (widget.landscape) {
+            return Stack(
+              children: [
+                Positioned.fill(child: _stage(provider, width, height)),
+                _seatOverlay(leftSeat, width, left: 8),
+                _seatOverlay(rightSeat, width, right: 8),
+              ],
+            );
+          }
+          return Column(
             children: [
-              Positioned.fill(child: _stage(provider, width, height)),
-              _seatOverlay(leftSeat, width, left: 8),
-              _seatOverlay(rightSeat, width, right: 8),
+              SizedBox(
+                height: GameTableArea.portraitSeatHeight(
+                  compact: widget.compact,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 10, top: 2),
+                      child: _scaledSeat(leftSeat),
+                    ),
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 10, top: 2),
+                      child: _scaledSeat(rightSeat),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, stage) =>
+                      _stage(provider, stage.maxWidth, stage.maxHeight),
+                ),
+              ),
             ],
           );
-        }
-        return Column(
-          children: [
-            SizedBox(
-              height: GameTableArea.portraitSeatHeight(compact: widget.compact),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 10, top: 2),
-                    child: _scaledSeat(leftSeat),
-                  ),
-                  const Spacer(),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10, top: 2),
-                    child: _scaledSeat(rightSeat),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, stage) =>
-                    _stage(provider, stage.maxWidth, stage.maxHeight),
-              ),
-            ),
-          ],
-        );
-      },
+        },
+      ),
     );
   }
 
@@ -257,8 +258,8 @@ class _GameTableAreaState extends State<GameTableArea> {
       cardWidth,
       width * 0.42,
     );
-    // 矮屏横屏时仍给顶部悬浮提示留出一条空隙，牌堆压低但不压住中央提示。
-    final sideTop = (height * 0.06).clamp(12.0, 36.0);
+    // 提示带已在网格上方预留（见 GameLayout.hintBand），牌堆只需留一点呼吸位。
+    const sideTop = 6.0;
     return Stack(
       clipBehavior: Clip.none,
       children: [

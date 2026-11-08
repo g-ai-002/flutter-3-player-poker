@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../providers/game_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/formatters.dart';
 import '../../widgets/table_overlay.dart';
 import '../hand_record_page.dart';
 
@@ -22,21 +23,9 @@ class BidOverlay extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            _overlayTitle(
               '轮到你叫分',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
               highest == 0 ? '尚无人叫分，叫分即底分' : '当前最高 $highest 分',
-              style: TextStyle(
-                color: kGoldSoft.withValues(alpha: 0.85),
-                fontSize: 12,
-              ),
             ),
             if (provider.bidAdvice case final advice?) ...[
               const SizedBox(height: 4),
@@ -49,15 +38,7 @@ class BidOverlay extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 6),
-            Text(
-              '叫 3 分直接成为地主；叫分最高者拿走 3 张底牌，以一敌二。',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.55),
-                fontSize: 11,
-                height: 1.6,
-              ),
-            ),
+            _body('叫 3 分直接成为地主；叫分最高者拿走 3 张底牌，以一敌二。'),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -106,7 +87,7 @@ class DoubleOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final engine = provider.engine;
-    final isLandlord = engine.landlord == 0;
+    final canReveal = provider.canReveal;
     return TableOverlay(
       onLeave: onLeave,
       child: TablePanel(
@@ -123,35 +104,29 @@ class DoubleOverlay extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
+            _body(
               '底分 ${engine.baseScore} · 当前倍数 ×${engine.multiplier}\n'
               '加倍后本局倍数再 ×2，胜负得分同步翻倍。',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 12,
-                height: 1.7,
-              ),
+              color: Colors.white.withValues(alpha: 0.6),
+              height: 1.7,
             ),
-            if (isLandlord) ...[
+            if (engine.landlord == 0) ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: provider.canReveal ? provider.revealHand : null,
+                  onPressed: canReveal ? provider.revealHand : null,
                   style: tableGhostButtonStyle(
-                    enabled: provider.canReveal,
+                    enabled: canReveal,
                     foreground: kGoldSoft,
                   ),
                   icon: Icon(
-                    provider.canReveal
+                    canReveal
                         ? Icons.visibility_outlined
                         : Icons.check_circle_outline,
                     size: 16,
                   ),
-                  label: Text(
-                    provider.canReveal ? '明牌 ×2（亮出全部手牌）' : '已明牌 · 倍数 ×2',
-                  ),
+                  label: Text(canReveal ? '明牌 ×2（亮出全部手牌）' : '已明牌 · 倍数 ×2'),
                 ),
               ),
             ],
@@ -242,44 +217,9 @@ class ResultOverlay extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  '${tags.join(' · ')} · 倍数 ×${result.multiplier}',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 11,
-                  ),
-                ),
+                _body('${tags.join(' · ')} · 倍数 ×${result.multiplier}'),
                 const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        '本局得分',
-                        style: TextStyle(color: Colors.white54, fontSize: 12),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        '${score >= 0 ? '+' : ''}$score',
-                        style: TextStyle(
-                          color: score >= 0
-                              ? kGoldSoft
-                              : const Color(0xFFE08A7A),
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _scoreBadge(score),
                 const SizedBox(height: 12),
                 ScoreBoard(provider: provider),
                 if (provider.lastRecord != null) ...[
@@ -330,6 +270,62 @@ class ResultOverlay extends StatelessWidget {
   }
 }
 
+/// 浮层主标题 + 一行金色副标题。
+Widget _overlayTitle(String title, String note) => Column(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    Text(
+      title,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+    const SizedBox(height: 6),
+    Text(
+      note,
+      textAlign: TextAlign.center,
+      style: TextStyle(color: kGoldSoft.withValues(alpha: 0.85), fontSize: 12),
+    ),
+  ],
+);
+
+/// 浮层说明文字：统一字号与行高，颜色可按场景微调。
+Widget _body(String text, {Color? color, double height = 1.6}) => Text(
+  text,
+  textAlign: TextAlign.center,
+  style: TextStyle(
+    color: color ?? Colors.white.withValues(alpha: 0.55),
+    fontSize: 11,
+    height: height,
+  ),
+);
+
+/// 本局得分胶囊：正分金色、负分红色。
+Widget _scoreBadge(int score) => Container(
+  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+  decoration: BoxDecoration(
+    color: Colors.black.withValues(alpha: 0.22),
+    borderRadius: BorderRadius.circular(12),
+  ),
+  child: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      const Text('本局得分', style: TextStyle(color: Colors.white54, fontSize: 12)),
+      const SizedBox(width: 12),
+      Text(
+        signed(score),
+        style: TextStyle(
+          color: score >= 0 ? kGoldSoft : const Color(0xFFE08A7A),
+          fontSize: 22,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    ],
+  ),
+);
+
 /// 三家本局得分：地主与两名农民对照展示。
 class ScoreBoard extends StatelessWidget {
   const ScoreBoard({super.key, required this.provider});
@@ -363,8 +359,7 @@ class ScoreBoard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${result.scores[player.id] >= 0 ? '+' : ''}'
-                    '${result.scores[player.id]}',
+                    signed(result.scores[player.id]),
                     style: TextStyle(
                       color: result.scores[player.id] >= 0
                           ? kGoldSoft
