@@ -12,11 +12,19 @@ import 'table_events.dart';
 /// [DdzEngine.lastActionText]，因此“加倍结束”“两家不出”等阶段文案不会
 /// 覆盖牌谱里的“不加倍”“不出”。
 class ActionAnnouncer {
-  ActionAnnouncer({required this.engine, required this.events, this.recorder});
+  ActionAnnouncer({
+    required this.engine,
+    required this.events,
+    this.recorder,
+    this.onPlay,
+  });
 
   final DdzEngine engine;
   final TableEventBus events;
   final HandRecorder? recorder;
+
+  /// 出牌动画开始：参数为出牌者与牌数，用于在飞牌落定前先收起牌堆。
+  final void Function(int playerId, int cardCount)? onPlay;
 
   void bid(int playerId) {
     _emitWithText(TableEventType.bid, playerId, HandActionType.bid);
@@ -43,6 +51,7 @@ class ActionAnnouncer {
         cards: combo.cards,
       ),
     );
+    onPlay?.call(playerId, combo.cards.length);
     AudioService.instance.play(combo.isBomb ? AudioCue.bomb : AudioCue.play);
     if (combo.isBomb) {
       events.emit(

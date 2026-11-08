@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../models/playing_card.dart';
 import 'logic_clock.dart';
+import 'play_flight.dart';
 import 'table_events.dart';
 
 /// Flame 牌桌：绒面背景、浮尘、发牌/出牌飞行动画与炸弹冲击波。
@@ -63,14 +64,17 @@ class DdzTableGame extends FlameGame {
     super.detach();
   }
 
-  /// 三家出牌区的相对坐标，由 Flutter 布局回传；未回传前使用经验位置。
-  final Map<int, Offset> _pileAnchors = {};
+  /// 三家出牌区的几何，由 Flutter 布局回传；未回传前使用经验位置。
+  final Map<int, PileTarget> _pileTargets = {};
 
-  void setPileAnchors(Map<int, Offset> anchors) {
-    _pileAnchors
+  void setPileTargets(Map<int, PileTarget> targets) {
+    _pileTargets
       ..clear()
-      ..addAll(anchors);
+      ..addAll(targets);
   }
+
+  /// 当前场景里的飞牌组件，供测试核对牌数。
+  int get flightCount => children.whereType<CardFlight>().length;
 
   Offset seatPoint(int player) {
     return switch (player) {
@@ -82,9 +86,9 @@ class DdzTableGame extends FlameGame {
 
   /// 飞牌落点：优先使用布局回传的真实出牌区中心。
   Offset pilePoint(int player) {
-    final anchor = _pileAnchors[player];
-    if (anchor != null) {
-      return Offset(anchor.dx * size.x, anchor.dy * size.y);
+    final target = _pileTargets[player];
+    if (target != null) {
+      return Offset(target.center.dx * size.x, target.center.dy * size.y);
     }
     return switch (player) {
       1 => Offset(size.x * 0.82, size.y * 0.34),
@@ -98,19 +102,7 @@ class DdzTableGame extends FlameGame {
       case TableEventType.deal:
         _playDeal();
       case TableEventType.play:
-        final cards = event.cards.take(kIsWeb ? 6 : 8).toList();
-        final target = pilePoint(event.player) - const Offset(0, 6);
-        for (var i = 0; i < cards.length; i++) {
-          add(
-            CardFlight(
-              card: cards[i],
-              from: seatPoint(event.player),
-              to: target + Offset(i * 10, -i * 2),
-              delay: i * 0.035,
-              duration: 0.32,
-            ),
-          );
-        }
+        _playCards(event);
       case TableEventType.blast:
         final point = pilePoint(event.player);
         add(BlastWave(position: point));
@@ -129,6 +121,40 @@ class DdzTableGame extends FlameGame {
     }
   }
 
+  /// 出牌动画：每张牌各飞一次，数量与本次出牌完全一致。
+  ///
+  /// 落点按出牌区的真实叠放规则排布，尺寸对齐牌桌上牌面的实际显示尺寸，
+  /// 因此取消飞行后由牌桌原位接管，不会出现缩放或位移的跳变。
+  void _playCards(TableEvent event) {
+    final cards = event.cards;
+    if (cards.isEmpty) return;
+    final target = _pileTargets[event.player];
+    final cardSize = target?.cardSize ?? const Size(34, 47.6);
+    final spacing = PlayFlight.spacing(
+      count: cards.length,
+      cardWidth: cardSize.width,
+      maxWidth: target?.maxWidth ?? cardSize.width * cards.length,
+    );
+    final stackWidth = cardSize.width + spacing * (cards.length - 1);
+    final center = pilePoint(event.player);
+    final from = seatPoint(event.player);
+    for (var i = 0; i < cards.length; i++) {
+      add(
+        CardFlight(
+          card: cards[i],
+          from: from,
+          to: Offset(
+            center.dx - stackWidth / 2 + cardSize.width / 2 + i * spacing,
+            center.dy,
+          ),
+          size: cardSize,
+          angle: target?.angle ?? 0,
+          delay: i * PlayFlight.stagger,
+        ),
+      );
+    }
+  }
+
   void _playDeal() {
     const perPlayer = kIsWeb ? 3 : 5;
     for (var player = 0; player < 3; player++) {
@@ -138,6 +164,7 @@ class DdzTableGame extends FlameGame {
             card: null,
             from: Offset(size.x * 0.5, size.y * 0.45),
             to: seatPoint(player),
+            size: const Size(30, 42),
             delay: 0.04 * (i * 3 + player),
             duration: 0.36,
           ),
@@ -281,19 +308,32 @@ class CardFlight extends Component {
     required this.card,
     required this.from,
     required this.to,
+    required this.size,
+    this.angle = 0,
     this.delay = 0,
-    this.duration = 0.34,
+    this.duration = PlayFlight.duration,
   });
 
   final PlayingCard? card;
   final Offset from;
   final Offset to;
+
+  /// 落定时的单张牌尺寸：与牌桌出牌区上牌面的实际尺寸一致。
+  final Size size;
+
+  /// 落定时的倾斜角度：左右两家的牌堆朝自家座位倾斜。
+  final double angle;
+
   double delay;
   final double duration;
   double _elapsed = 0;
 
-  static const double _cardWidth = 34;
-  static const double _cardHeight = 48;
+  /// 牌面按 34 × 47.6 的逻辑尺寸绘制，飞行时整体等比缩放。
+  static const double _baseWidth = 34;
+  static const double _baseHeight = _baseWidth * PlayFlight.cardAspect;
+
+  /// 起飞时为落定尺寸的 58%，飞向牌桌的过程中放大到出牌区的大小。
+  static const double _startScale = 0.58;
   static final TextPaint _blackRank = TextPaint(
     style: const TextStyle(
       fontSize: 13,
@@ -331,12 +371,24 @@ class CardFlight extends Component {
       (_elapsed / duration).clamp(0.0, 1.0),
     );
     final position = Offset.lerp(from, to, t)!;
-    final arc = math.sin(t * math.pi) * 18;
-    final rect = Rect.fromCenter(
-      center: Offset(position.dx, position.dy - arc),
-      width: _cardWidth,
-      height: _cardHeight,
-    );
+    final arc = math.sin(t * math.pi) * (size.height * 0.34);
+    final width = size.width * (_startScale + (1 - _startScale) * t);
+    if (width <= 0) return;
+    final scale = width / _baseWidth;
+    final center = Offset(position.dx, position.dy - arc);
+
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(angle * t);
+    canvas.scale(scale);
+    canvas.translate(-_baseWidth / 2, -_baseHeight / 2);
+    _draw(canvas);
+    canvas.restore();
+  }
+
+  /// 在 0,0 处以基准尺寸绘制一张牌，缩放与旋转由画布变换承担。
+  void _draw(Canvas canvas) {
+    const rect = Rect.fromLTWH(0, 0, _baseWidth, _baseHeight);
     final radius = RRect.fromRectAndRadius(rect, const Radius.circular(5));
 
     if (card == null) {

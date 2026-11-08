@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../game/card_counter.dart';
 import '../game/ddz_table_game.dart';
 import '../game/game_engine.dart';
+import '../game/play_flight.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/screen_mode.dart';
@@ -84,21 +85,9 @@ class _GamePageState extends State<GamePage> {
     if (ok) _provider.newGame();
   }
 
-  /// 把出牌区的屏幕坐标换算成牌桌内的相对坐标，飞牌动画据此落地。
-  void _syncPileCenters(Map<int, Offset> centers) {
-    final box = _gameKey.currentContext?.findRenderObject() as RenderBox?;
-    final table = _table;
-    if (box == null || !box.hasSize) return;
-    final size = box.size;
-    if (size.isEmpty) return;
-    table?.setPileAnchors({
-      for (final entry in centers.entries)
-        if (box.globalToLocal(entry.value) case final local)
-          entry.key: Offset(
-            (local.dx / size.width).clamp(0.0, 1.0),
-            (local.dy / size.height).clamp(0.0, 1.0),
-          ),
-    });
+  /// 把出牌区的中心、牌面尺寸与倾斜角度交给牌桌层，飞牌动画据此精确落位。
+  void _syncPileTargets(Map<int, PileTarget> targets) {
+    _table?.setPileTargets(targets);
   }
 
   @override
@@ -151,7 +140,7 @@ class _GamePageState extends State<GamePage> {
                                   landscape: landscape,
                                   compact: compact,
                                   topInset: GameLayout.hintBand(sides: sides),
-                                  onPileCenters: _syncPileCenters,
+                                  onPileTargets: _syncPileTargets,
                                 ),
                               ),
                               if (!_counterOpen)

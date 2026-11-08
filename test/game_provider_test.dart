@@ -68,6 +68,8 @@ Future<void> pumpToHumanTurn(GameProvider game, WidgetTester tester) async {
     }
     await tester.pump(const Duration(milliseconds: 1));
   }
+  // 出牌后的飞牌动画计时器要走完，避免测试结束时留下待触发的定时器。
+  await tester.pump(const Duration(milliseconds: 500));
 }
 
 void takeLandlord(GameProvider game) {

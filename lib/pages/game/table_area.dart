@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../game/game_engine.dart';
+import '../../game/play_flight.dart';
 import '../../providers/game_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/played_cards_view.dart';
@@ -61,7 +62,8 @@ class BottomCardsBar extends StatelessWidget {
 /// 左右两家的出牌区位于中央偏上并分别向左 / 右倾斜，玩家出牌区在中央偏下，
 /// 三堆牌彼此靠近，方便一眼比较三家的上一手。中央不放常驻状态文字，
 /// 轮次与提示由牌桌页的悬浮提示层承担，牌桌因此拿到完整的垂直空间。
-/// 布局完成后把三处出牌区的屏幕坐标回传给牌桌页，供 Flame 飞牌动画落点使用。
+/// 布局完成后把三处出牌区的中心、牌面尺寸与倾斜角度回传给牌桌页，
+/// 供 Flame 飞牌动画精确对齐落点与大小。
 class GameTableArea extends StatefulWidget {
   const GameTableArea({
     super.key,
@@ -69,7 +71,7 @@ class GameTableArea extends StatefulWidget {
     required this.landscape,
     this.compact = false,
     this.topInset = 0,
-    this.onPileCenters,
+    this.onPileTargets,
   });
 
   final GameProvider provider;
@@ -79,8 +81,8 @@ class GameTableArea extends StatefulWidget {
   /// 网格上方要让给悬浮提示带的高度：提示带不参与牌桌页布局，但网格不压提示。
   final double topInset;
 
-  /// 三家出牌区的全局坐标（0 玩家、1 右侧、2 左侧）。
-  final ValueChanged<Map<int, Offset>>? onPileCenters;
+  /// 三家出牌区的几何（0 玩家、1 右侧、2 左侧）。
+  final ValueChanged<Map<int, PileTarget>>? onPileTargets;
 
   /// 竖屏座位条高度：悬浮提示层据此避开左右座位。
   static double portraitSeatHeight({bool compact = false}) =>
@@ -95,18 +97,45 @@ class _GameTableAreaState extends State<GameTableArea> {
     for (final id in const [0, 1, 2]) id: GlobalKey(),
   };
 
-  void _reportPileCenters() {
+  /// 牌桌网格的宽度与牌面宽度：出牌区几何据此估算可用叠放空间。
+  double _stageWidth = 0;
+  double _stageCardWidth = 0;
+
+  /// 把三处出牌区的牌堆中心、实际牌面尺寸与倾斜角度回传给牌桌页。
+  void _reportPileTargets() {
     if (!mounted) return;
-    final callback = widget.onPileCenters;
-    if (callback == null) return;
-    final centers = <int, Offset>{};
+    final callback = widget.onPileTargets;
+    final screen = MediaQuery.sizeOf(context);
+    if (callback == null || _stageCardWidth <= 0 || screen.isEmpty) return;
+    final targets = <int, PileTarget>{};
     for (final entry in _pileKeys.entries) {
-      final box = entry.value.currentContext?.findRenderObject() as RenderBox?;
-      if (box == null || !box.hasSize) return;
-      centers[entry.key] = box.localToGlobal(box.size.center(Offset.zero));
+      final render = entry.value.currentContext?.findRenderObject();
+      if (render is! RenderBox || !render.hasSize || !render.attached) return;
+      // 牌堆的缩放来自出牌区的 FittedBox，取累计缩放可让飞牌尺寸与之一致。
+      final scale = render.getTransformTo(null).getMaxScaleOnAxis();
+      final local = Offset(
+        render.size.width / 2,
+        render.size.height - _stageCardWidth * PlayFlight.cardAspect / 2,
+      );
+      final center = render.localToGlobal(local);
+      final cardWidth = _stageCardWidth * scale;
+      targets[entry.key] = PileTarget(
+        center: Offset(center.dx / screen.width, center.dy / screen.height),
+        cardSize: Size(cardWidth, cardWidth * PlayFlight.cardAspect),
+        maxWidth: _pileMaxWidth(entry.key),
+        angle: switch (entry.key) {
+          2 => -_tilt,
+          1 => _tilt,
+          _ => 0,
+        },
+      );
     }
-    callback(centers);
+    callback(targets);
   }
+
+  /// 出牌区叠放可用的横向宽度：与 [_stage] 里的牌堆槽位一致。
+  double _pileMaxWidth(int player) =>
+      _stageWidth * (player == 0 ? 0.42 : 0.26);
 
   /// 明牌手牌浮层：地主亮牌后，农民可随时查看。
   void _showRevealedHand(BuildContext context, PlayerState player) {
@@ -176,6 +205,7 @@ class _GameTableAreaState extends State<GameTableArea> {
             cards: player.lastPlay,
             combo: player.lastCombo,
             passed: player.lastPassed,
+            hidden: provider.isPlayFlying(player.id),
             maxWidth: maxWidth,
             cardWidth: cardWidth,
           ),
@@ -189,7 +219,7 @@ class _GameTableAreaState extends State<GameTableArea> {
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _reportPileCenters());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reportPileTargets());
     final provider = widget.provider;
     final left = provider.engine.players[2];
     final right = provider.engine.players[1];
@@ -248,6 +278,8 @@ class _GameTableAreaState extends State<GameTableArea> {
   Widget _stage(GameProvider provider, double width, double height) {
     // 牌面随牌桌宽度线性放大到 96 像素封顶，1440p / 4K 桌面不再显示偏小的牌。
     final cardWidth = (width / 16).clamp(34.0, 96.0);
+    _stageWidth = width;
+    _stageCardWidth = cardWidth;
     final engine = provider.engine;
     final sideWidth = width * 0.26;
     final leftPile = _pile(provider, engine.players[2], cardWidth, sideWidth);

@@ -8,6 +8,7 @@ import '../game/combo.dart';
 import '../game/combo_detector.dart';
 import '../game/game_engine.dart';
 import '../game/hand_recorder.dart';
+import '../game/play_flight.dart';
 import '../game/table_events.dart';
 import '../game/turn_driver.dart';
 import '../models/hand_record.dart';
@@ -39,6 +40,7 @@ class GameProvider extends ChangeNotifier {
       engine: this.engine,
       events: this.events,
       recorder: recorder,
+      onPlay: _beginPlayFlight,
     );
     driver = TurnDriver(
       engine: this.engine,
@@ -72,6 +74,10 @@ class GameProvider extends ChangeNotifier {
 
   final Set<int> _selectedIds = {};
   final ValueNotifier<int> _turnSeconds = ValueNotifier<int>(0);
+
+  /// 正在飞牌的三家：牌堆已排好版但先保持透明，动画落定后一起亮出。
+  final Set<int> _flyingPlays = {};
+  final Map<int, Timer> _flightTimers = {};
   Timer? _feedbackTimer;
   int _clockSerial = -1;
   String? _feedback;
@@ -91,6 +97,9 @@ class GameProvider extends ChangeNotifier {
 
   /// 当前回合剩余秒数；座位与操作条只监听这个小对象，避免整页每秒重建。
   ValueListenable<int> get turnSecondsLeft => _turnSeconds;
+
+  /// 该家是否正在飞牌：为 true 时出牌区先保持透明，等飞牌落定再亮出。
+  bool isPlayFlying(int playerId) => _flyingPlays.contains(playerId);
 
   /// 本局牌谱；对局结束后生成，供结算页查看。
   HandRecord? get lastRecord => _lastRecord;
@@ -174,6 +183,7 @@ class GameProvider extends ChangeNotifier {
     _feedbackTimer?.cancel();
     _feedback = null;
     _selectedIds.clear();
+    _clearFlights();
     _clockSerial = -1;
     if (engine.phase == GamePhase.bidding ||
         engine.phase == GamePhase.doubling ||
@@ -188,6 +198,7 @@ class GameProvider extends ChangeNotifier {
     _feedbackTimer?.cancel();
     _feedback = null;
     _selectedIds.clear();
+    _clearFlights();
     _clockSerial = -1;
     if (_turnSeconds.value != 0) _turnSeconds.value = 0;
   }
@@ -375,6 +386,26 @@ class GameProvider extends ChangeNotifier {
     });
   }
 
+  /// 出牌后先收起牌堆，等飞牌动画落定再亮出，避免牌先于动画出现在桌上。
+  ///
+  /// 时长与牌桌层的飞行节拍共用 [PlayFlight]，牌多牌少都能对齐。
+  void _beginPlayFlight(int playerId, int cardCount) {
+    _flightTimers.remove(playerId)?.cancel();
+    _flyingPlays.add(playerId);
+    _flightTimers[playerId] = Timer(PlayFlight.revealDelay(cardCount), () {
+      _flightTimers.remove(playerId);
+      if (_flyingPlays.remove(playerId)) notifyListeners();
+    });
+  }
+
+  void _clearFlights() {
+    for (final timer in _flightTimers.values) {
+      timer.cancel();
+    }
+    _flightTimers.clear();
+    _flyingPlays.clear();
+  }
+
   void _recordStats() {
     final gameResult = engine.result;
     if (gameResult == null || _statsRecorded) return;
@@ -400,6 +431,7 @@ class GameProvider extends ChangeNotifier {
   void dispose() {
     driver.dispose();
     _feedbackTimer?.cancel();
+    _clearFlights();
     _turnSeconds.dispose();
     events.dispose();
     super.dispose();
