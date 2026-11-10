@@ -9,19 +9,19 @@ import 'constants.dart';
 Future<void> setupDesktopWindow() async {
   if (kIsWeb || defaultTargetPlatform != TargetPlatform.windows) return;
   try {
-    await windowManager.ensureInitialized();
-    const options = WindowOptions(
-      size: Size(1180, 780),
-      minimumSize: Size(760, 560),
-      center: true,
-      skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.normal,
-      title: AppConstants.appName,
-    );
-    windowManager.waitUntilReadyToShow(options, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
+    final window = WindowManager.instance.getCurrent();
+    if (window == null) {
+      LogService.warning('窗口管理器初始化失败: 未取到当前窗口');
+      return;
+    }
+    window.title = AppConstants.appName;
+    window.titleBarStyle = TitleBarStyle.normal;
+    window.isVisibleInTaskbar = true;
+    window.minimumSize = const Size(760, 560).toNative();
+    window.setSize(const Size(1180, 780).toNative(), false);
+    window.center();
+    window.show();
+    window.focus();
   } catch (e) {
     LogService.warning('窗口管理器初始化失败: $e');
   }
