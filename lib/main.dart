@@ -16,6 +16,7 @@ import 'services/stats_service.dart';
 import 'services/storage_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/constants.dart';
+import 'utils/system_ui.dart';
 import 'utils/window_setup.dart';
 
 Future<void> main() async {
@@ -81,6 +82,8 @@ class PokerApp extends StatelessWidget {
             ],
             supportedLocales: const [Locale('zh', 'CN')],
             locale: const Locale('zh', 'CN'),
+            builder: (context, child) =>
+                SystemUiOverlay(child: child ?? const SizedBox.shrink()),
             home: const HomePage(),
           );
         },

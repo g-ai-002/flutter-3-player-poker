@@ -1,5 +1,6 @@
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../game/card_counter.dart';
@@ -9,6 +10,7 @@ import '../game/play_flight.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/screen_mode.dart';
+import '../utils/system_ui.dart';
 import '../widgets/card_counter_overlay.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/turn_countdown.dart';
@@ -94,7 +96,7 @@ class _GamePageState extends State<GamePage> {
   Widget build(BuildContext context) {
     final provider = context.watch<GameProvider>();
     final table = _table!;
-    return PopScope(
+    final page = PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _leave();
@@ -205,6 +207,11 @@ class _GamePageState extends State<GamePage> {
           },
         ),
       ),
+    );
+    // 牌桌底色恒为深绿台呢，平板与宽屏下系统栏仍会显示，状态栏图标需用浅色。
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: systemOverlayStyleFor(kFeltDark),
+      child: page,
     );
   }
 }

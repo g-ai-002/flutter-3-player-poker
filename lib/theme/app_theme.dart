@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/system_ui.dart';
+
 const Color kFeltDark = Color(0xFF0A2318);
 const Color kGold = Color(0xFFD8B56A);
 const Color kGoldSoft = Color(0xFFEBD6A4);
@@ -112,6 +114,7 @@ ThemeData _base({
       scrolledUnderElevation: 0,
       centerTitle: true,
       surfaceTintColor: Colors.transparent,
+      systemOverlayStyle: systemOverlayStyleFor(scaffold),
       toolbarHeight: 52,
       titleTextStyle: TextStyle(
         fontSize: 17,
