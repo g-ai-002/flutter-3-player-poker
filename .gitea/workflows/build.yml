@@ -319,7 +319,7 @@ jobs:
           sed -i "s|<meta name=\"theme-color\" content=\"[^\"]*\">|<meta name=\"theme-color\" content=\"#1F6B46\">|" web/index.html
 
           jq --arg name "$app_title" --arg desc "$app_desc" \
-            '.name = $name | .short_name = $name | .description = $desc | .theme_color = "#1F6B46" | .background_color = "#0B2318"' \
+            '.name = $name | .short_name = $name | .description = $desc | .theme_color = "#1F6B46" | .background_color = "#F7F2E6"' \
             web/manifest.json > web/manifest.json.tmp
           mv web/manifest.json.tmp web/manifest.json
 
