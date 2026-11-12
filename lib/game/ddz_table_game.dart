@@ -44,8 +44,6 @@ class DdzTableGame extends FlameGame {
   @override
   Future<void> onLoad() async {
     add(FeltBackground());
-    // 浮尘只保留在移动/桌面端，Web 端优先保证动画流畅度。
-    if (!kIsWeb) add(DustLayer());
     bus.subscribe(_onEvent);
     if (introDeal) _playDeal();
   }
@@ -67,7 +65,9 @@ class DdzTableGame extends FlameGame {
   /// 三家出牌区的几何，由 Flutter 布局回传；未回传前使用经验位置。
   final Map<int, PileTarget> _pileTargets = {};
 
+  /// 几何没变时不重复回传，避免每帧刷新时做无意义的布局查询与分配。
   void setPileTargets(Map<int, PileTarget> targets) {
+    if (mapEquals(_pileTargets, targets)) return;
     _pileTargets
       ..clear()
       ..addAll(targets);
@@ -218,6 +218,17 @@ class FeltBackground extends Component with HasGameReference<DdzTableGame> {
       Vector2(size.x * 0.5, size.y * 0.47),
       anchor: Anchor.center,
     );
+    // 浮尘直接烘进绒面图片：外观不变，但每帧不再有 22 次圆形绘制与粒子推进。
+    final dust = Paint()
+      ..color = const Color(0xFFEBD6A4).withValues(alpha: 0.1);
+    final random = math.Random(7);
+    for (var i = 0; i < 22; i++) {
+      canvas.drawCircle(
+        Offset(random.nextDouble() * size.x, random.nextDouble() * size.y),
+        0.6 + random.nextDouble() * 1.6,
+        dust,
+      );
+    }
     _picture = recorder.endRecording();
     _cachedSize = size;
   }
@@ -235,69 +246,6 @@ class FeltBackground extends Component with HasGameReference<DdzTableGame> {
     if (_cachedSize != size || _picture == null) _rebuild(size);
     canvas.drawPicture(_picture!);
   }
-}
-
-class DustLayer extends Component with HasGameReference<DdzTableGame> {
-  DustLayer() : _random = math.Random(7);
-
-  final math.Random _random;
-  final List<_Dust> _particles = [];
-  final Paint _paint = Paint()
-    ..color = const Color(0xFFEBD6A4).withValues(alpha: 0.10);
-  bool _seeded = false;
-
-  @override
-  void update(double dt) {
-    if (!_seeded) {
-      _seeded = true;
-      for (var i = 0; i < 22; i++) {
-        _particles.add(
-          _Dust(
-            x: _random.nextDouble(),
-            y: _random.nextDouble(),
-            speed: 0.01 + _random.nextDouble() * 0.025,
-            radius: 0.6 + _random.nextDouble() * 1.6,
-            phase: _random.nextDouble() * math.pi * 2,
-          ),
-        );
-      }
-    }
-    for (final particle in _particles) {
-      particle
-        ..y -= particle.speed * dt
-        ..phase += dt * 0.5;
-      if (particle.y < -0.02) particle.y = 1.02;
-    }
-  }
-
-  @override
-  void render(Canvas canvas) {
-    final size = game.size;
-    for (final particle in _particles) {
-      final x = (particle.x + math.sin(particle.phase) * 0.015) * size.x;
-      canvas.drawCircle(
-        Offset(x, particle.y * size.y),
-        particle.radius,
-        _paint,
-      );
-    }
-  }
-}
-
-class _Dust {
-  _Dust({
-    required this.x,
-    required this.y,
-    required this.speed,
-    required this.radius,
-    required this.phase,
-  });
-
-  final double x;
-  double y;
-  final double speed;
-  final double radius;
-  double phase;
 }
 
 class CardFlight extends Component {
@@ -325,31 +273,8 @@ class CardFlight extends Component {
   final double duration;
   double _elapsed = 0;
 
-  /// 牌面按 34 × 47.6 的逻辑尺寸绘制，飞行时整体等比缩放。
-  static const double _baseWidth = 34;
-  static const double _baseHeight = _baseWidth * PlayFlight.cardAspect;
-
   /// 起飞时为落定尺寸的 58%，飞向牌桌的过程中放大到出牌区的大小。
   static const double _startScale = 0.58;
-  static final TextPaint _blackRank = TextPaint(
-    style: const TextStyle(
-      fontSize: 13,
-      height: 1,
-      fontWeight: FontWeight.w800,
-      color: Color(0xFF1F2A24),
-    ),
-  );
-  static final TextPaint _redRank = TextPaint(
-    style: const TextStyle(
-      fontSize: 13,
-      height: 1,
-      fontWeight: FontWeight.w800,
-      color: Color(0xFFC0392B),
-    ),
-  );
-  static final TextPaint _suit = TextPaint(
-    style: const TextStyle(fontSize: 15, height: 1, color: Color(0xFF1F2A24)),
-  );
 
   @override
   void update(double dt) {
@@ -371,67 +296,17 @@ class CardFlight extends Component {
     final arc = math.sin(t * math.pi) * (size.height * 0.34);
     final width = size.width * (_startScale + (1 - _startScale) * t);
     if (width <= 0) return;
-    final scale = width / _baseWidth;
+    final scale = width / CardArt.width;
     final center = Offset(position.dx, position.dy - arc);
 
     canvas.save();
     canvas.translate(center.dx, center.dy);
     canvas.rotate(angle * t);
     canvas.scale(scale);
-    canvas.translate(-_baseWidth / 2, -_baseHeight / 2);
-    _draw(canvas);
+    canvas.translate(-CardArt.width / 2, -CardArt.height / 2);
+    // 牌面文字与画刷全部预先合成为图片，飞行期间每帧只提交一次绘制。
+    canvas.drawPicture(CardArt.pictureOf(card));
     canvas.restore();
-  }
-
-  /// 在 0,0 处以基准尺寸绘制一张牌，缩放与旋转由画布变换承担。
-  void _draw(Canvas canvas) {
-    const rect = Rect.fromLTWH(0, 0, _baseWidth, _baseHeight);
-    final radius = RRect.fromRectAndRadius(rect, const Radius.circular(5));
-
-    if (card == null) {
-      canvas.drawRRect(
-        radius,
-        Paint()
-          ..shader = const LinearGradient(
-            colors: [Color(0xFF1B5C3C), Color(0xFF0C2B1C)],
-          ).createShader(rect),
-      );
-      canvas.drawRRect(
-        radius,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1
-          ..color = const Color(0xFFD8B56A).withValues(alpha: 0.6),
-      );
-      return;
-    }
-
-    final face = card!;
-    canvas.drawRRect(radius, Paint()..color = const Color(0xFFFFFBF0));
-    canvas.drawRRect(
-      radius,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.8
-        ..color = const Color(0xFFD8CEB6),
-    );
-    final paint = face.isRed ? _redRank : _blackRank;
-    final origin = Vector2(rect.left + 3, rect.top + 2);
-    paint.render(canvas, face.rankLabel, origin);
-    if (face.isJoker) {
-      _suit.render(
-        canvas,
-        face.rank == 17 ? '大' : '小',
-        Vector2(rect.left + 3, rect.top + 18),
-      );
-    } else {
-      _suit.render(
-        canvas,
-        face.suitSymbol,
-        Vector2(rect.center.dx, rect.center.dy + 3),
-        anchor: Anchor.center,
-      );
-    }
   }
 }
 
@@ -447,6 +322,10 @@ class BlastWave extends Component {
   final Color color;
   double _elapsed = 0;
   static const double _duration = 0.55;
+
+  /// 冲击波每帧只改颜色与线宽，画刷本身复用，避免动画期间反复分配。
+  final Paint _outer = Paint()..style = PaintingStyle.stroke;
+  final Paint _inner = Paint()..style = PaintingStyle.stroke;
 
   @override
   void update(double dt) {
@@ -464,21 +343,105 @@ class BlastWave extends Component {
     final t = (_elapsed / _duration).clamp(0.0, 1.0);
     final radius = 30 + t * 180;
     final alpha = (1 - t) * 0.55;
-    canvas.drawCircle(
-      position,
-      radius,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4 * (1 - t) + 1
-        ..color = color.withValues(alpha: alpha),
-    );
-    canvas.drawCircle(
-      position,
-      radius * 0.65,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = const Color(0xFFEBD6A4).withValues(alpha: alpha * 0.8),
-    );
+    _outer
+      ..strokeWidth = 4 * (1 - t) + 1
+      ..color = color.withValues(alpha: alpha);
+    canvas.drawCircle(position, radius, _outer);
+    _inner
+      ..strokeWidth = 2
+      ..color = const Color(0xFFEBD6A4).withValues(alpha: alpha * 0.8);
+    canvas.drawCircle(position, radius * 0.65, _inner);
+  }
+}
+
+/// 牌面预渲染缓存：同一张牌的文字排版、渐变与描边只做一次。
+///
+/// 飞行动画以前每帧都要重排点数与花色文字并新建画刷，现在每帧只
+/// 提交一张 [ui.Picture]，牌多时（发牌、飞机、连对）帧率更稳。
+abstract final class CardArt {
+  static const double width = 34;
+  static const double height = width * PlayFlight.cardAspect;
+  static const Rect _rect = Rect.fromLTWH(0, 0, width, height);
+  static final RRect _card = RRect.fromRectAndRadius(
+    _rect,
+    const Radius.circular(5),
+  );
+  static final Map<int, ui.Picture> _faces = {};
+  static ui.Picture? _back;
+
+  static ui.Picture pictureOf(PlayingCard? card) =>
+      card == null ? back() : face(card);
+  static ui.Picture face(PlayingCard card) =>
+      _faces.putIfAbsent(card.id, () => _record(card));
+  static ui.Picture back() => _back ??= _record(null);
+
+  static Paint _stroke(Color color, double width) => Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = width
+    ..color = color;
+  static TextPaint _text(double size, Color color, {FontWeight? weight}) =>
+      TextPaint(
+        style: TextStyle(
+          fontSize: size,
+          height: 1,
+          fontWeight: weight,
+          color: color,
+        ),
+      );
+
+  static ui.Picture _record(PlayingCard? card) {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    if (card == null) {
+      canvas.drawRRect(
+        _card,
+        Paint()
+          ..shader = const LinearGradient(
+            colors: [Color(0xFF1B5C3C), Color(0xFF0C2B1C)],
+          ).createShader(_rect),
+      );
+      canvas.drawRRect(_card, _stroke(const Color(0x99D8B56A), 1));
+      return recorder.endRecording();
+    }
+    canvas.drawRRect(_card, Paint()..color = const Color(0xFFFFFBF0));
+    canvas.drawRRect(_card, _stroke(const Color(0xFFD8CEB6), 0.8));
+    final color = card.isRed
+        ? const Color(0xFFC0392B)
+        : const Color(0xFF1F2A24);
+    _text(
+      13,
+      color,
+      weight: FontWeight.w800,
+    ).render(canvas, card.rankLabel, Vector2(_rect.left + 3, _rect.top + 2));
+    if (card.isJoker) {
+      _text(15, color).render(
+        canvas,
+        card.rank == 17 ? '大' : '小',
+        Vector2(_rect.left + 3, _rect.top + 18),
+      );
+    } else {
+      _text(15, color).render(
+        canvas,
+        card.suitSymbol,
+        Vector2(_rect.center.dx, _rect.center.dy + 3),
+        anchor: Anchor.center,
+      );
+    }
+    return recorder.endRecording();
+  }
+
+  /// 测试用：已缓存的牌面数量。
+  @visibleForTesting
+  static int get cachedFaces => _faces.length;
+
+  /// 测试用：释放缓存，避免测试之间互相影响。
+  @visibleForTesting
+  static void clearCache() {
+    for (final picture in _faces.values) {
+      picture.dispose();
+    }
+    _faces.clear();
+    _back?.dispose();
+    _back = null;
   }
 }

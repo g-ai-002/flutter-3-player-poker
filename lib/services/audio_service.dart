@@ -30,6 +30,7 @@ class AudioService {
 
   Future<void>? _loading;
   Future<void>? _engineReady;
+  Future<Uint8List>? _bgmLoading;
   DateTime? _retryAt;
   bool _soundEnabled = true;
   bool _musicEnabled = true;
@@ -188,8 +189,23 @@ class AudioService {
     final loaded = _bgmSource;
     if (loaded != null) return loaded;
     await _ensureEngine();
-    _bgmBytes ??= _buildBgmLoop();
-    return _bgmSource = await _soloud.loadMem('poker-bgm.wav', _bgmBytes!);
+    final bytes = await _bgmBytesAsync();
+    return _bgmSource = await _soloud.loadMem('poker-bgm.wav', bytes);
+  }
+
+  /// 12 秒背景音乐的波形合成放到后台 isolate，避免首次进桌时卡住渲染帧。
+  ///
+  /// 字节生成是纯计算，不触碰播放器状态；Web 端由 [compute] 退化为
+  /// 让出一帧后同步执行，不会阻塞首帧。
+  Future<Uint8List> _bgmBytesAsync() {
+    final cached = _bgmBytes;
+    if (cached != null) return Future.value(cached);
+    return _bgmLoading ??= () async {
+      return _bgmBytes = await compute<Object?, Uint8List>(
+        buildBgmLoopWav,
+        null,
+      );
+    }().whenComplete(() => _bgmLoading = null);
   }
 
   Uint8List _bytes(AudioCue cue) {
@@ -202,7 +218,7 @@ class AudioService {
 
   /// 测试用：检查背景音乐循环的长度与格式。
   @visibleForTesting
-  Uint8List debugBgmWav() => _bgmBytes ??= _buildBgmLoop();
+  Uint8List debugBgmWav() => _bgmBytes ??= buildBgmLoopWav();
 
   Uint8List _generate(AudioCue cue) {
     switch (cue) {
@@ -315,86 +331,6 @@ class AudioService {
     return samples;
   }
 
-  Uint8List _buildWav(
-    int sampleRate,
-    int numSamples,
-    double Function(int index) sampleAt,
-  ) {
-    const channels = 1;
-    const bitsPerSample = 16;
-    final dataSize = numSamples * channels * (bitsPerSample ~/ 8);
-    final buffer = ByteData(44 + dataSize);
-    var offset = 0;
-
-    void writeStr(String value) {
-      for (var i = 0; i < value.length; i++) {
-        buffer.setUint8(offset++, value.codeUnitAt(i));
-      }
-    }
-
-    void writeUint16(int value) {
-      buffer.setUint16(offset, value, Endian.little);
-      offset += 2;
-    }
-
-    void writeUint32(int value) {
-      buffer.setUint32(offset, value, Endian.little);
-      offset += 4;
-    }
-
-    writeStr('RIFF');
-    writeUint32(36 + dataSize);
-    writeStr('WAVE');
-    writeStr('fmt ');
-    writeUint32(16);
-    writeUint16(1);
-    writeUint16(channels);
-    writeUint32(sampleRate);
-    writeUint32(sampleRate * channels * (bitsPerSample ~/ 8));
-    writeUint16(channels * (bitsPerSample ~/ 8));
-    writeUint16(bitsPerSample);
-    writeStr('data');
-    writeUint32(dataSize);
-
-    for (var i = 0; i < numSamples; i++) {
-      final value = (sampleAt(i) * 32767).round().clamp(-32768, 32767);
-      buffer.setInt16(offset, value, Endian.little);
-      offset += 2;
-    }
-    return buffer.buffer.asUint8List();
-  }
-
-  /// 12 秒循环：五声音阶旋律 + 舒缓低音，音量很低，长时间不刺耳。
-  Uint8List _buildBgmLoop() {
-    const rate = 22050;
-    const durationMs = 12000;
-    const noteMs = 750;
-    const melody = [
-      523.25,
-      659.25,
-      783.99,
-      659.25,
-      587.33,
-      440.0,
-      523.25,
-      392.0,
-    ];
-    const bass = [130.81, 174.61, 196.0, 164.81];
-    const samples = rate * durationMs ~/ 1000;
-    return _buildWav(rate, samples, (i) {
-      final t = i / rate;
-      final note = (t * 1000 / noteMs).floor() % melody.length;
-      final noteT = (t * 1000) % noteMs / 1000;
-      final envelope = sin(pi * noteT / (noteMs / 1000));
-      final lead = sin(2 * pi * melody[note] * t) * envelope * 0.07;
-      final harmony = sin(2 * pi * melody[note] * 0.5 * t) * envelope * 0.018;
-      final bassNote = bass[(t * 1000 / (noteMs * 2)).floor() % bass.length];
-      final pulse = 0.5 + 0.5 * sin(2 * pi * t / 3);
-      final low = sin(2 * pi * bassNote * t) * 0.035 * pulse;
-      return lead + harmony + low;
-    });
-  }
-
   void _disposeSources(List<AudioSource> sources) {
     for (final source in sources) {
       unawaited(_disposeSource(source));
@@ -428,4 +364,79 @@ class AudioService {
     if (_blocked) return;
     _disposeSources(sources);
   }
+}
+
+/// 按 16bit 单声道 PCM 拼出 WAV 容器；纯计算，不依赖播放器与实例状态。
+Uint8List _buildWav(
+  int sampleRate,
+  int numSamples,
+  double Function(int index) sampleAt,
+) {
+  const channels = 1;
+  const bitsPerSample = 16;
+  final dataSize = numSamples * channels * (bitsPerSample ~/ 8);
+  final buffer = ByteData(44 + dataSize);
+  var offset = 0;
+
+  void writeStr(String value) {
+    for (var i = 0; i < value.length; i++) {
+      buffer.setUint8(offset++, value.codeUnitAt(i));
+    }
+  }
+
+  void writeUint16(int value) {
+    buffer.setUint16(offset, value, Endian.little);
+    offset += 2;
+  }
+
+  void writeUint32(int value) {
+    buffer.setUint32(offset, value, Endian.little);
+    offset += 4;
+  }
+
+  writeStr('RIFF');
+  writeUint32(36 + dataSize);
+  writeStr('WAVE');
+  writeStr('fmt ');
+  writeUint32(16);
+  writeUint16(1);
+  writeUint16(channels);
+  writeUint32(sampleRate);
+  writeUint32(sampleRate * channels * (bitsPerSample ~/ 8));
+  writeUint16(channels * (bitsPerSample ~/ 8));
+  writeUint16(bitsPerSample);
+  writeStr('data');
+  writeUint32(dataSize);
+
+  for (var i = 0; i < numSamples; i++) {
+    final value = (sampleAt(i) * 32767).round().clamp(-32768, 32767);
+    buffer.setInt16(offset, value, Endian.little);
+    offset += 2;
+  }
+  return buffer.buffer.asUint8List();
+}
+
+/// 12 秒循环背景音乐：五声音阶旋律 + 舒缓低音，音量很低，长时间不刺耳。
+///
+/// 顶层函数只做纯计算，可交给 [compute] 在后台 isolate 执行；可选参数
+/// 便于直接作为 compute 的回调，调用时忽略即可。
+Uint8List buildBgmLoopWav([Object? _]) {
+  const rate = 22050;
+  const durationMs = 12000;
+  const noteMs = 750;
+  const melody = [523.25, 659.25, 783.99, 659.25, 587.33, 440.0, 523.25, 392.0];
+  const bass = [130.81, 174.61, 196.0, 164.81];
+  const samples = rate * durationMs ~/ 1000;
+  return _buildWav(rate, samples, (i) {
+    final t = i / rate;
+    final note = (t * 1000 / noteMs).floor() % melody.length;
+    final noteT = (t * 1000) % noteMs / 1000;
+    final envelope = sin(pi * noteT / (noteMs / 1000));
+    final lead = sin(2 * pi * melody[note] * t) * envelope * 0.07;
+    final harmony = sin(2 * pi * melody[note] * 0.5 * t) * envelope * 0.018;
+    final bassNote = bass[(t * 1000 / (noteMs * 2)).floor() % bass.length];
+    final pulse = 0.5 + 0.5 * sin(2 * pi * t / 3);
+    final low = sin(2 * pi * bassNote * t) * 0.035 * pulse;
+    return lead + harmony + low;
+  });
 }

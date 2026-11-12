@@ -57,4 +57,15 @@ class PileTarget {
 
   /// 牌堆的倾斜角度：左右两家朝各自座位倾斜。
   final double angle;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PileTarget &&
+      other.center == center &&
+      other.cardSize == cardSize &&
+      other.maxWidth == maxWidth &&
+      other.angle == angle;
+
+  @override
+  int get hashCode => Object.hash(center, cardSize, maxWidth, angle);
 }

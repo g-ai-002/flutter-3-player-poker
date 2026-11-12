@@ -24,6 +24,14 @@ class GameActionBar extends StatelessWidget {
     if (provider.phase != GamePhase.playing) {
       return const SizedBox(width: double.infinity, height: height);
     }
+    // 只有选牌变化时才重建操作条，点牌不会带动牌桌与手牌整页重建。
+    return ValueListenableBuilder<Set<int>>(
+      valueListenable: provider.selection,
+      builder: (context, _, _) => _playing(context),
+    );
+  }
+
+  Widget _playing(BuildContext context) {
     final narrow = MediaQuery.sizeOf(context).width < GameLayout.narrowWidth;
     final empty = provider.selectedCards.isEmpty;
     final label = empty
@@ -175,13 +183,16 @@ class HumanHandView extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(12, 2, 12, compact ? 4 : 8),
       child: RepaintBoundary(
-        child: HandView(
-          cards: provider.humanHand,
-          selectedIds: provider.selectedIds,
-          enabled: provider.isHumanTurn,
-          onTap: provider.toggleCard,
-          onSelectionChanged: provider.setSelection,
-          maxCardWidth: compact ? 44 : null,
+        child: ValueListenableBuilder<Set<int>>(
+          valueListenable: provider.selection,
+          builder: (context, selectedIds, _) => HandView(
+            cards: provider.humanHand,
+            selectedIds: selectedIds,
+            enabled: provider.isHumanTurn,
+            onTap: provider.toggleCard,
+            onSelectionChanged: provider.setSelection,
+            maxCardWidth: compact ? 44 : null,
+          ),
         ),
       ),
     );

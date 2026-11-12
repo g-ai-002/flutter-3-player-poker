@@ -26,6 +26,14 @@ class GameHints extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 选牌变化只刷新提示层，牌桌与座位不参与这次重建。
+    return ValueListenableBuilder<Set<int>>(
+      valueListenable: provider.selection,
+      builder: (context, _, _) => _buildHints(),
+    );
+  }
+
+  Widget _buildHints() {
     final engine = provider.engine;
     final landlord = engine.landlord;
     final selection = provider.selectedCards.isEmpty

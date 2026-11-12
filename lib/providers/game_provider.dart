@@ -72,7 +72,7 @@ class GameProvider extends ChangeNotifier {
   /// 测试时注入固定延迟；为 0 时仍需等待事件队列。
   final int? aiDelayOverride;
 
-  final Set<int> _selectedIds = {};
+  final ValueNotifier<Set<int>> _selection = ValueNotifier(const <int>{});
   final ValueNotifier<int> _turnSeconds = ValueNotifier<int>(0);
 
   /// 正在飞牌的三家：牌堆已排好版但先保持透明，动画落定后一起亮出。
@@ -86,7 +86,13 @@ class GameProvider extends ChangeNotifier {
   HandRecord? _lastRecord;
 
   List<PlayingCard> get humanHand => engine.players[0].hand;
-  Set<int> get selectedIds => Set.unmodifiable(_selectedIds);
+
+  /// 选牌状态：手牌、操作条与提示层只订阅这个小对象。
+  ///
+  /// 点选一张牌只刷新这三处，不再通知整张牌桌页重建。
+  ValueListenable<Set<int>> get selection => _selection;
+
+  Set<int> get selectedIds => _selection.value;
   int? get thinkingPlayer => driver.thinkingPlayer;
   String? get feedback => _feedback;
   GamePhase get phase => engine.phase;
@@ -112,7 +118,7 @@ class GameProvider extends ChangeNotifier {
       !engine.revealed;
 
   List<PlayingCard> get selectedCards =>
-      humanHand.where((card) => _selectedIds.contains(card.id)).toList();
+      humanHand.where((card) => _selection.value.contains(card.id)).toList();
 
   Combo? get selectedCombo => detectCombo(selectedCards);
 
@@ -182,7 +188,7 @@ class GameProvider extends ChangeNotifier {
     driver.cancel();
     _feedbackTimer?.cancel();
     _feedback = null;
-    _selectedIds.clear();
+    _setSelection(const {});
     _clearFlights();
     _clockSerial = -1;
     if (engine.phase == GamePhase.bidding ||
@@ -197,7 +203,7 @@ class GameProvider extends ChangeNotifier {
     driver.cancel();
     _feedbackTimer?.cancel();
     _feedback = null;
-    _selectedIds.clear();
+    _setSelection(const {});
     _clearFlights();
     _clockSerial = -1;
     if (_turnSeconds.value != 0) _turnSeconds.value = 0;
@@ -231,21 +237,25 @@ class GameProvider extends ChangeNotifier {
 
   void toggleCard(int id) {
     if (!engine.isHumanTurn) return;
-    if (!_selectedIds.remove(id)) {
-      _selectedIds.add(id);
-    }
-    notifyListeners();
+    final next = Set<int>.of(_selection.value);
+    if (!next.remove(id)) next.add(id);
+    // 选牌只更新小对象，手牌、操作条与提示层各自局部刷新。
+    _setSelection(next);
   }
 
   /// 连续选牌的最终结果：以拖动起点的手牌状态为基准整体替换。
   void setSelection(Iterable<int> ids) {
     if (!engine.isHumanTurn) return;
     final next = ids.toSet();
-    if (setEquals(next, _selectedIds)) return;
-    _selectedIds
-      ..clear()
-      ..addAll(next);
-    notifyListeners();
+    if (setEquals(next, _selection.value)) return;
+    _setSelection(next);
+  }
+
+  /// 选牌快照不可变，订阅者拿到的集合不会被后续操作悄悄改掉。
+  void _setSelection(Iterable<int> ids) {
+    final next = Set.unmodifiable(ids);
+    if (setEquals(next, _selection.value)) return;
+    _selection.value = next;
   }
 
   void playSelected() {
@@ -256,7 +266,7 @@ class GameProvider extends ChangeNotifier {
       _showFeedback(outcome.error.message);
       return;
     }
-    _selectedIds.clear();
+    _setSelection(const {});
     announcer.play(0, outcome.combo, text: outcome.text);
     _notify();
     driver.schedule();
@@ -269,7 +279,7 @@ class GameProvider extends ChangeNotifier {
       _showFeedback(error.message);
       return;
     }
-    _selectedIds.clear();
+    _setSelection(const {});
     announcer.pass(0);
     _notify();
     driver.schedule();
@@ -306,16 +316,12 @@ class GameProvider extends ChangeNotifier {
     final advice = ai.hintAdvice(engine);
     final cards = advice.cards;
     if (cards == null) {
-      _selectedIds.clear();
+      _setSelection(const {});
       _showFeedback(advice.reason);
       return;
     }
-    _selectedIds
-      ..clear()
-      ..addAll(cards.map((card) => card.id));
-    _feedbackTimer?.cancel();
-    _feedback = null;
-    notifyListeners();
+    _setSelection(cards.map((card) => card.id));
+    // 提示理由直接走反馈通道，选牌由上面的小对象通知，牌桌不需要整页重建。
     _showFeedback(advice.reason, duration: const Duration(seconds: 4));
   }
 
@@ -355,7 +361,7 @@ class GameProvider extends ChangeNotifier {
   /// 人类超时：能不出就不出；领出时按规则必须出牌，自动打出最小单张。
   void handleTurnTimeout() {
     if (!engine.isHumanTurn) return;
-    _selectedIds.clear();
+    _setSelection(const {});
     if (engine.lastCombo != null) {
       final error = engine.pass(0);
       if (error == PlayError.none) {
@@ -432,6 +438,7 @@ class GameProvider extends ChangeNotifier {
     driver.dispose();
     _feedbackTimer?.cancel();
     _clearFlights();
+    _selection.dispose();
     _turnSeconds.dispose();
     events.dispose();
     super.dispose();

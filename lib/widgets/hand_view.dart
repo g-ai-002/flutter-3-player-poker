@@ -130,6 +130,7 @@ class _HandViewState extends State<HandView> {
                   children: [
                     for (var i = 0; i < cards.length; i++)
                       AnimatedPositioned(
+                        key: ValueKey('hand-slot-${cards[i].id}'),
                         duration: const Duration(milliseconds: 120),
                         left: i * spacing,
                         bottom: widget.selectedIds.contains(cards[i].id)
@@ -140,10 +141,16 @@ class _HandViewState extends State<HandView> {
                           onTap: widget.enabled
                               ? () => widget.onTap(cards[i].id)
                               : null,
-                          child: PlayingCardView(
-                            card: cards[i],
-                            width: cardWidth,
-                            selected: widget.selectedIds.contains(cards[i].id),
+                          // 每张牌独立成层：选中一张只重绘它自己，
+                          // 不会带着另外十几张牌的阴影一起重绘。
+                          child: RepaintBoundary(
+                            child: PlayingCardView(
+                              card: cards[i],
+                              width: cardWidth,
+                              selected: widget.selectedIds.contains(
+                                cards[i].id,
+                              ),
+                            ),
                           ),
                         ),
                       ),

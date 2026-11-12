@@ -24,6 +24,18 @@ class PlayingCardView extends StatelessWidget {
 
   double get height => width * 1.4;
 
+  /// 阴影写成常量，手牌每次重建不再为每张牌重新分配 BoxShadow 与颜色。
+  static const List<BoxShadow> _cardShadow = [
+    BoxShadow(color: Color(0x2E000000), blurRadius: 4, offset: Offset(0, 2)),
+  ];
+  static const List<BoxShadow> _selectedShadow = [
+    BoxShadow(color: Color(0x52000000), blurRadius: 10, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x59D8B56A), blurRadius: 12, spreadRadius: 1),
+  ];
+  static const List<BoxShadow> _backShadow = [
+    BoxShadow(color: Color(0x40000000), blurRadius: 4, offset: Offset(0, 2)),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(math.max(4, width * 0.1));
@@ -39,13 +51,7 @@ class PlayingCardView extends StatelessWidget {
             end: Alignment.bottomRight,
           ),
           border: Border.all(color: kGold.withValues(alpha: 0.55)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          boxShadow: _backShadow,
         ),
         child: Center(
           child: Container(
@@ -81,96 +87,90 @@ class PlayingCardView extends StatelessWidget {
           color: selected ? kGold : const Color(0xFFD8CEB6),
           width: selected ? 2 : 0.8,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: selected ? 0.32 : 0.18),
-            blurRadius: selected ? 10 : 4,
-            offset: Offset(0, selected ? 4 : 2),
-          ),
-          if (selected)
-            BoxShadow(
-              color: kGold.withValues(alpha: 0.35),
-              blurRadius: 12,
-              spreadRadius: 1,
-            ),
-        ],
+        boxShadow: selected ? _selectedShadow : _cardShadow,
       ),
-      child: Opacity(
-        opacity: dimmed ? 0.45 : 1,
-        child: Stack(
-          children: [
-            Positioned(
-              left: 4 * scale,
-              top: 2 * scale,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
+      child: _dim(
+        Opacity(
+          opacity: 0.45,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 4 * scale,
+                top: 2 * scale,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      card.rankLabel,
+                      style: TextStyle(
+                        fontSize: 15 * scale,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                        color: color,
+                      ),
+                    ),
+                    Text(
+                      card.suitSymbol,
+                      style: TextStyle(
+                        fontSize: 11 * scale,
+                        height: 1.1,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (card.isJoker)
+                Center(
+                  child: Text(
+                    card.rank == 17 ? '大\n王' : '小\n王',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14 * scale,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                      color: color,
+                    ),
+                  ),
+                )
+              else
+                Center(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 6 * scale),
+                    child: Text(
+                      card.suitSymbol,
+                      style: TextStyle(
+                        fontSize: 26 * scale,
+                        height: 1,
+                        color: color.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                right: 4 * scale,
+                bottom: 2 * scale,
+                child: Transform.rotate(
+                  angle: math.pi,
+                  child: Text(
                     card.rankLabel,
                     style: TextStyle(
-                      fontSize: 15 * scale,
-                      fontWeight: FontWeight.w800,
-                      height: 1,
-                      color: color,
-                    ),
-                  ),
-                  Text(
-                    card.suitSymbol,
-                    style: TextStyle(
                       fontSize: 11 * scale,
-                      height: 1.1,
-                      color: color,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (card.isJoker)
-              Center(
-                child: Text(
-                  card.rank == 17 ? '大\n王' : '小\n王',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14 * scale,
-                    fontWeight: FontWeight.w800,
-                    height: 1.15,
-                    color: color,
-                  ),
-                ),
-              )
-            else
-              Center(
-                child: Padding(
-                  padding: EdgeInsets.only(top: 6 * scale),
-                  child: Text(
-                    card.suitSymbol,
-                    style: TextStyle(
-                      fontSize: 26 * scale,
+                      fontWeight: FontWeight.w700,
                       height: 1,
-                      color: color.withValues(alpha: 0.9),
+                      color: color.withValues(alpha: 0.75),
                     ),
                   ),
                 ),
               ),
-            Positioned(
-              right: 4 * scale,
-              bottom: 2 * scale,
-              child: Transform.rotate(
-                angle: math.pi,
-                child: Text(
-                  card.rankLabel,
-                  style: TextStyle(
-                    fontSize: 11 * scale,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
-                    color: color.withValues(alpha: 0.75),
-                  ),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+
+  /// 未变暗时不额外包一层 Opacity，省掉每张牌一个渲染对象。
+  Widget _dim(Widget child) =>
+      dimmed ? Opacity(opacity: 0.45, child: child) : child;
 }

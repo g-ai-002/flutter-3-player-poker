@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../game/game_engine.dart';
@@ -101,7 +102,22 @@ class _GameTableAreaState extends State<GameTableArea> {
   double _stageWidth = 0;
   double _stageCardWidth = 0;
 
+  /// 同一帧内的多次重建只回传一次几何，避免重复的布局查询。
+  bool _reportScheduled = false;
+  Map<int, PileTarget>? _lastTargets;
+
+  void _scheduleReport() {
+    if (_reportScheduled) return;
+    _reportScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _reportScheduled = false;
+      _reportPileTargets();
+    });
+  }
+
   /// 把三处出牌区的牌堆中心、实际牌面尺寸与倾斜角度回传给牌桌页。
+  ///
+  /// 几何没变时直接跳过，选牌、快门等与牌堆无关的重建不再重复写回牌桌层。
   void _reportPileTargets() {
     if (!mounted) return;
     final callback = widget.onPileTargets;
@@ -130,12 +146,14 @@ class _GameTableAreaState extends State<GameTableArea> {
         },
       );
     }
+    final previous = _lastTargets;
+    if (previous != null && mapEquals(previous, targets)) return;
+    _lastTargets = targets;
     callback(targets);
   }
 
   /// 出牌区叠放可用的横向宽度：与 [_stage] 里的牌堆槽位一致。
-  double _pileMaxWidth(int player) =>
-      _stageWidth * (player == 0 ? 0.42 : 0.26);
+  double _pileMaxWidth(int player) => _stageWidth * (player == 0 ? 0.42 : 0.26);
 
   /// 明牌手牌浮层：地主亮牌后，农民可随时查看。
   void _showRevealedHand(BuildContext context, PlayerState player) {
@@ -219,7 +237,7 @@ class _GameTableAreaState extends State<GameTableArea> {
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _reportPileTargets());
+    _scheduleReport();
     final provider = widget.provider;
     final left = provider.engine.players[2];
     final right = provider.engine.players[1];
