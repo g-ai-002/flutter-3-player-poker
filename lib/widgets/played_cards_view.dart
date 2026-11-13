@@ -18,7 +18,6 @@ class PlayedCardsView extends StatelessWidget {
     this.hidden = false,
     this.maxWidth = 240,
     this.cardWidth = 36,
-    this.showCombo = true,
   });
 
   final List<PlayingCard> cards;
@@ -34,9 +33,6 @@ class PlayedCardsView extends StatelessWidget {
 
   /// 单张牌宽；牌桌中央比侧栏需要更大的牌面。
   final double cardWidth;
-
-  /// 是否展示牌型名称，中央出牌区可按布局需要隐藏。
-  final bool showCombo;
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +65,7 @@ class PlayedCardsView extends StatelessWidget {
       Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (showCombo && combo != null)
+          if (combo != null)
             Text(
               combo!.description,
               style: const TextStyle(
@@ -78,7 +74,7 @@ class PlayedCardsView extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
-          if (showCombo && combo != null) const SizedBox(height: 3),
+          if (combo != null) const SizedBox(height: 3),
           LayoutBuilder(
             builder: (context, constraints) {
               final count = cards.length;

@@ -106,7 +106,6 @@ class DdzEngine {
   int highestBid = 0;
   int? highestBidder;
   int turnSerial = 0;
-  int trickSerial = 0;
 
   /// 牌桌当前展示的提示文案，可能被阶段转换覆盖（如“加倍结束”“两家不出”）。
   String? lastActionText;
@@ -163,7 +162,6 @@ class DdzEngine {
     lastMoveText = null;
     revealed = false;
     phase = GamePhase.bidding;
-    trickSerial++;
 
     final deck = PlayingCard.createDeck()..shuffle(_random);
     for (var i = 0; i < 51; i++) {
@@ -355,7 +353,6 @@ class DdzEngine {
       lastCombo = null;
       passCount = 0;
       lastPlayer = -1;
-      trickSerial++;
       for (final other in players) {
         other.lastPassed = false;
         other.lastPlay = const [];
