@@ -1,0 +1,35 @@
+{
+  "name": "斗地主",
+  "short_name": "斗地主",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F7F2E6",
+  "theme_color": "#1F6B46",
+  "description": "斗地主 - 经典三人扑克牌游戏，支持 Android、Windows 与 Web",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icons/Icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/Icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/Icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/Icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
