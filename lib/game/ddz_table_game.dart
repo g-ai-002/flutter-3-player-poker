@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/playing_card.dart';
+import '../theme/app_theme.dart';
 import 'logic_clock.dart';
 import 'play_flight.dart';
 import 'table_events.dart';
@@ -403,11 +404,9 @@ abstract final class CardArt {
       canvas.drawRRect(_card, _stroke(const Color(0x99D8B56A), 1));
       return recorder.endRecording();
     }
-    canvas.drawRRect(_card, Paint()..color = const Color(0xFFFFFBF0));
-    canvas.drawRRect(_card, _stroke(const Color(0xFFD8CEB6), 0.8));
-    final color = card.isRed
-        ? const Color(0xFFC0392B)
-        : const Color(0xFF1F2A24);
+    canvas.drawRRect(_card, Paint()..color = kCardFaceTop);
+    canvas.drawRRect(_card, _stroke(kCardBorder, 0.8));
+    final color = card.isRed ? kCardRed : kCardBlack;
     _text(
       13,
       color,

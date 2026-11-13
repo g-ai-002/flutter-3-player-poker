@@ -7,6 +7,16 @@ const Color kGold = Color(0xFFD8B56A);
 const Color kGoldSoft = Color(0xFFEBD6A4);
 const Color kOnGold = Color(0xFF2C1D04);
 
+/// 牌面配色：白底、纯正的红黑两色、清晰的描边。
+///
+/// 牌点在小尺寸下要一眼看清，所以不用暖灰底与低饱和的红；
+/// 牌桌飞牌与 Flutter 牌面共用这套常量，动画落定前后不会出现色差。
+const Color kCardFaceTop = Color(0xFFFFFFFF);
+const Color kCardFaceBottom = Color(0xFFF7F1E2);
+const Color kCardBorder = Color(0xFFB9AC8C);
+const Color kCardRed = Color(0xFFC62B22);
+const Color kCardBlack = Color(0xFF16181B);
+
 /// 金色主按钮：主页「开始对局」、牌桌出牌与浮层确认共用同一套配色。
 ButtonStyle goldButtonStyle({
   EdgeInsetsGeometry padding = const EdgeInsets.symmetric(horizontal: 15),
