@@ -562,7 +562,7 @@ void main() {
       },
     );
 
-    tester.view.physicalSize = const Size(360, 780);
+    tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     await tester.pumpWidget(
       wrapApp(const GamePage(), settings: settings, game: game),

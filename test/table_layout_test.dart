@@ -16,6 +16,8 @@ import 'package:flutter_3_player_poker/services/storage_service.dart';
 import 'package:flutter_3_player_poker/theme/app_theme.dart';
 import 'package:flutter_3_player_poker/utils/screen_mode.dart';
 import 'package:flutter_3_player_poker/widgets/played_cards_view.dart';
+import 'package:flutter_3_player_poker/widgets/playing_card_view.dart';
+import 'package:flutter_3_player_poker/widgets/seat_panel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -60,8 +62,8 @@ void main() {
   group('牌桌网格比例决定屏幕方向', () {
     test('长屏手机横屏能放下更大的网格，自动横屏', () {
       for (final size in const [
-        Size(360, 780),
         Size(390, 844),
+        Size(393, 873),
         Size(412, 915),
       ]) {
         expect(prefersLandscape(size), isTrue, reason: '$size 应横屏');
@@ -69,10 +71,17 @@ void main() {
       }
     });
 
-    test('矮屏手机横屏后高度不足，保持竖屏', () {
-      const size = Size(320, 568);
-      expect(prefersLandscape(size), isFalse);
-      expect(tableOrientationLock(size), isFalse, reason: '应锁定竖屏');
+    test('窄屏与矮屏手机保持竖屏', () {
+      // 360 宽的长屏手机：底牌抬高顶栏后竖屏网格反而更大，不再强制横屏。
+      for (final size in const [
+        Size(320, 568),
+        Size(320, 640),
+        Size(360, 780),
+        Size(360, 800),
+      ]) {
+        expect(prefersLandscape(size), isFalse, reason: '$size 应竖屏');
+        expect(tableOrientationLock(size), isFalse, reason: '$size 应锁定竖屏');
+      }
     });
 
     test('平板与折叠屏保留系统方向', () {
@@ -282,6 +291,77 @@ void main() {
     final hand = tester.getRect(find.byType(HumanHandView));
     expect(before.bottom, closeTo(dock.top, 0.01), reason: '操作 dock 紧贴网格下沿');
     expect(hand.bottom, closeTo(360, 0.01), reason: '手牌悬浮在屏幕最下方');
+
+    game.stop();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('横屏两家座位与屏幕两侧等距', (tester) async {
+    final settings = await makeSettings();
+    final game = await playingGame(settings);
+    addTearDown(game.dispose);
+
+    tester.view.physicalSize = const Size(1024, 700);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+
+    final seats = tester.widgetList<SeatPanel>(find.byType(SeatPanel));
+    expect(seats.length, 2);
+    final left = tester.getRect(find.byWidget(seats.first));
+    final right = tester.getRect(find.byWidget(seats.last));
+    expect(
+      left.left,
+      closeTo(1024 - right.right, 0.01),
+      reason: '左右座位到屏幕两侧的留白应一致',
+    );
+    expect(
+      (left.center.dx + right.center.dx) / 2,
+      closeTo(1024 / 2, 0.01),
+      reason: '两家头像相对牌桌中线对称',
+    );
+
+    game.stop();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('底牌牌面放大并完整落在顶栏内', (tester) async {
+    final settings = await makeSettings();
+    final game = await playingGame(settings);
+    addTearDown(game.dispose);
+
+    tester.view.physicalSize = const Size(780, 360);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+
+    final deck = tester.getRect(find.byType(BottomCardsBar));
+    final cards = find.descendant(
+      of: find.byType(BottomCardsBar),
+      matching: find.byType(PlayingCardView),
+    );
+    expect(cards, findsNWidgets(3));
+    for (var i = 0; i < 3; i++) {
+      final card = tester.getRect(cards.at(i));
+      expect(card.width, closeTo(BottomCardsBar.cardWidth, 0.01));
+      expect(
+        card.width,
+        greaterThanOrEqualTo(32),
+        reason: '底牌牌面不能退回 24 像素的小牌',
+      );
+      expect(
+        card.height,
+        lessThanOrEqualTo(GameTopBar.height),
+        reason: '放大后的底牌仍要完整落在悬浮顶栏里',
+      );
+      expect(deck.contains(card.topLeft), isTrue);
+    }
 
     game.stop();
     tester.view.resetPhysicalSize();

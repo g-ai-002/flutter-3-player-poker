@@ -3,8 +3,8 @@
 /// 顶栏与底部操作 dock 都按这里的尺寸占位，提示层只在悬浮层里出现，
 /// 因此提示、选牌与阶段切换都不会改变主界面布局。
 abstract final class GameLayout {
-  /// 悬浮顶栏高度：牌桌页让出这块高度，座位不会被顶栏压住。
-  static const double topBarHeight = 40;
+  /// 悬浮顶栏高度：按 34×47.6 的底牌牌面留足，牌桌页让出这块高度后座位不被压住。
+  static const double topBarHeight = 52;
 
   /// 底部操作 dock 高度：叫分、加倍阶段也保留同一高度。
   static const double actionBarHeight = 40;

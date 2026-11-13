@@ -10,8 +10,9 @@ const double tableGridAspect = 2.2;
 /// 竖屏 / 横屏下被顶栏、提示带、操作条与手牌占掉的固定高度（与 GameLayout 一致）。
 ///
 /// 竖屏提示只能叠在网格上方，四条槽位共 92；横屏提示分列网格左右，顶部只留胶囊。
-const double _portraitChrome = 40 + 92 + 40 + 118;
-const double _landscapeChrome = 40 + 28 + 40 + 86;
+/// 顶栏 52 的高度按放大的底牌牌面计算，两种方向共用同一个数值。
+const double _portraitChrome = 52 + 92 + 40 + 118;
+const double _landscapeChrome = 52 + 28 + 40 + 86;
 
 /// 牌桌网格在某个视口里能放到的宽度：扣除固定占位后按设计比例取 min。
 ///

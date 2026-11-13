@@ -18,12 +18,14 @@ class BottomCardsBar extends StatelessWidget {
   final DdzEngine engine;
   final bool compact;
 
+  /// 底牌牌面宽度：正好占满顶栏高度，牌点与花色在小屏上也能看清。
+  static const double cardWidth = 34;
+
   @override
   Widget build(BuildContext context) {
     final revealed = engine.landlord != null;
-    final width = compact ? 22.0 : 24.0;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.26),
         borderRadius: BorderRadius.circular(20),
@@ -36,19 +38,19 @@ class BottomCardsBar extends StatelessWidget {
             Text(
               '底牌',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.42),
-                fontSize: 9,
-                letterSpacing: 1.5,
+                color: Colors.white.withValues(alpha: 0.55),
+                fontSize: 9.5,
+                letterSpacing: 1.2,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
           ],
           for (final card in engine.bottomCards)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 1.5),
               child: PlayingCardView(
                 card: card,
-                width: width,
+                width: cardWidth,
                 faceDown: !revealed,
               ),
             ),
@@ -402,6 +404,8 @@ class _GameTableAreaState extends State<GameTableArea> {
   }
 
   /// 横屏时座位悬浮在牌桌左上 / 右上，不与中央牌堆争夺布局空间。
+  ///
+  /// 右侧座位按右上对齐，两侧到屏幕边缘的留白才与左家一致。
   Widget _seatOverlay(
     Widget seat,
     double width, {
@@ -416,7 +420,7 @@ class _GameTableAreaState extends State<GameTableArea> {
       height: widget.compact ? 40 : 96,
       child: FittedBox(
         fit: BoxFit.scaleDown,
-        alignment: Alignment.topLeft,
+        alignment: right != null ? Alignment.topRight : Alignment.topLeft,
         child: seat,
       ),
     );
