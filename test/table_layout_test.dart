@@ -176,6 +176,46 @@ void main() {
     tester.view.resetDevicePixelRatio();
   });
 
+  testWidgets('宽屏牌局进度信息居中显示', (tester) async {
+    final settings = await makeSettings();
+    final game = await playingGame(settings);
+    addTearDown(game.dispose);
+    game.engine.lastActionText = '两家不出，你 重新领出';
+    game.engine.players[1].hand.removeRange(
+      1,
+      game.engine.players[1].hand.length,
+    );
+
+    tester.view.physicalSize = const Size(1024, 700);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      wrapApp(const GamePage(), settings: settings, game: game),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+
+    final progress = tester.getRect(find.text('两家不出，你 重新领出'));
+    final chip = tester.getRect(find.byType(TurnChip));
+    final arena = tester.getRect(find.byType(GameTableArea));
+    expect(progress.center.dx, closeTo(1024 / 2, 1), reason: '上一手进度在正上方居中');
+    expect(
+      progress.top,
+      greaterThanOrEqualTo(chip.bottom),
+      reason: '进度紧跟在轮次下方',
+    );
+    expect(
+      progress.bottom,
+      lessThanOrEqualTo(arena.top + GameLayout.hintBand(sides: true)),
+      reason: '居中的进度落在网格上方的提示带内',
+    );
+
+    final alert = tester.getRect(find.text('小智只剩 1 张 · 出大牌压制'));
+    expect(alert.center.dx, lessThan(1024 * 0.2), reason: '残局提醒仍在网格左侧');
+
+    game.stop();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
   testWidgets('窄屏提示叠在网格上方，不压出牌区', (tester) async {
     final settings = await makeSettings();
     final game = await playingGame(settings);

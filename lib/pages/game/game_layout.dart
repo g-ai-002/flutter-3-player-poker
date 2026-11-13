@@ -15,8 +15,8 @@ abstract final class GameLayout {
   /// 宽度达到该值时提示分列网格左右两侧：两家出牌区外侧还有余量。
   static const double sideHintsWidth = 720;
 
-  /// 横屏提示带：只在网格上方留一条轮次胶囊，其余提示放到左右两侧。
-  static const double sideHintBand = 28;
+  /// 横屏提示带：网格上方居中放轮次胶囊与上一手进度，其余提示放到左右两侧。
+  static const double sideHintBand = 44;
 
   /// 竖屏 / 窄屏提示带：四条固定槽位叠在网格上方。
   static const double stackedHintBand = 92;

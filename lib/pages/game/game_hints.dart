@@ -83,27 +83,46 @@ class GameHints extends StatelessWidget {
     );
   }
 
-  /// 宽屏：轮次在网格上方，残局与上一手在左侧，临时反馈在右侧。
+  /// 宽屏：轮次与上一手在网格正上方居中，残局提醒在左，临时反馈在右。
   Widget _sides(String turn, String? action, String? alert, String? feedback) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final sideWidth = constraints.maxWidth * 0.17;
+        final progress = _caption(
+          action,
+          9.5,
+          Colors.white.withValues(alpha: 0.55),
+        );
         return Stack(
           children: [
             Positioned(
               top: 0,
               left: 0,
               right: 0,
-              child: Center(child: TurnChip(text: turn)),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth * 0.58,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TurnChip(text: turn),
+                      if (progress != null) ...[
+                        const SizedBox(height: 2),
+                        progress,
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             ),
             _edge(
               sideWidth,
               Alignment.centerLeft,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+              children: <Widget>[
                 ?_caption(alert, 10, kGoldSoft.withValues(alpha: 0.85)),
-                if (alert != null && action != null) const SizedBox(height: 3),
-                ?_caption(action, 9.5, Colors.white.withValues(alpha: 0.55)),
               ],
             ),
             _edge(
