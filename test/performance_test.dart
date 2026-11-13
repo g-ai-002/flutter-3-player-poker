@@ -173,17 +173,17 @@ void main() {
 
   group('出牌区几何去抖', () {
     test('几何按值比较，同中心同尺寸视为未变化', () {
-      const a = PileTarget(
+      const a = PlayerTarget(
         center: Offset(0.5, 0.5),
         cardSize: Size(40, 56),
         maxWidth: 200,
       );
-      const b = PileTarget(
+      const b = PlayerTarget(
         center: Offset(0.5, 0.5),
         cardSize: Size(40, 56),
         maxWidth: 200,
       );
-      const c = PileTarget(
+      const c = PlayerTarget(
         center: Offset(0.5, 0.5),
         cardSize: Size(41, 57.4),
         maxWidth: 200,
@@ -213,7 +213,7 @@ void main() {
           body: GameTableArea(
             provider: game,
             landscape: false,
-            onPileTargets: (_) => reports++,
+            onTargets: (_) => reports++,
           ),
         ),
         game,

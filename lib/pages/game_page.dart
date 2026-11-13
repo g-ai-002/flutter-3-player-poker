@@ -34,6 +34,7 @@ class GamePage extends StatefulWidget {
 
 class _GamePageState extends State<GamePage> {
   final GlobalKey _gameKey = GlobalKey();
+  final GlobalKey _handAnchorKey = GlobalKey();
   late final GameProvider _provider;
   DdzTableGame? _table;
   bool _counterOpen = false;
@@ -87,9 +88,9 @@ class _GamePageState extends State<GamePage> {
     if (ok) _provider.newGame();
   }
 
-  /// 把出牌区的中心、牌面尺寸与倾斜角度交给牌桌层，飞牌动画据此精确落位。
-  void _syncPileTargets(Map<int, PileTarget> targets) {
-    _table?.setPileTargets(targets);
+  /// 把出牌区与座位的几何交给牌桌层：飞牌从座位起飞、落到出牌区。
+  void _syncTableTargets(Map<int, PlayerTarget> targets) {
+    _table?.setTargets(targets);
   }
 
   @override
@@ -142,7 +143,8 @@ class _GamePageState extends State<GamePage> {
                                   landscape: landscape,
                                   compact: compact,
                                   topInset: GameLayout.hintBand(sides: sides),
-                                  onPileTargets: _syncPileTargets,
+                                  humanAnchor: _handAnchorKey,
+                                  onTargets: _syncTableTargets,
                                 ),
                               ),
                               if (!_counterOpen)
@@ -158,7 +160,13 @@ class _GamePageState extends State<GamePage> {
                         ),
                       ),
                       GameActionBar(provider: provider),
-                      HumanHandView(provider: provider, compact: compact),
+                      KeyedSubtree(
+                        key: _handAnchorKey,
+                        child: HumanHandView(
+                          provider: provider,
+                          compact: compact,
+                        ),
+                      ),
                     ],
                   ),
                 ),

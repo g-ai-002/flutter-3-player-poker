@@ -17,12 +17,16 @@ class SeatPanel extends StatelessWidget {
     this.onTap,
     this.countdown,
     this.compact = false,
+    this.avatarKey,
   });
 
   final PlayerState player;
   final bool isCurrent;
   final bool thinking;
   final GamePhase phase;
+
+  /// 头像的定位键：牌桌页据此把飞牌动画的起点对准头像。
+  final GlobalKey? avatarKey;
 
   /// 该玩家已明牌：显示标记，配合 [onTap] 可查看亮出的手牌。
   final bool revealed;
@@ -70,6 +74,7 @@ class SeatPanel extends StatelessWidget {
 
   /// 头像：地主用金色，农民用绿松石色。
   Widget _avatar(double size, double fontSize) => Container(
+    key: avatarKey,
     width: size,
     height: size,
     decoration: BoxDecoration(

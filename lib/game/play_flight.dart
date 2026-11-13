@@ -37,13 +37,15 @@ abstract final class PlayFlight {
   }
 }
 
-/// 一家出牌区的几何：牌堆中心、单张牌的实际显示尺寸与叠放可用宽度。
-class PileTarget {
-  const PileTarget({
+/// 一家在牌桌上的几何：出牌区牌堆中心、单张牌的实际显示尺寸、叠放可用宽度、
+/// 倾斜角度，以及飞牌起飞的座位点。
+class PlayerTarget {
+  const PlayerTarget({
     required this.center,
     required this.cardSize,
     required this.maxWidth,
     this.angle = 0,
+    this.seat,
   });
 
   /// 牌堆中心相对牌桌的坐标（0..1）。
@@ -58,14 +60,18 @@ class PileTarget {
   /// 牌堆的倾斜角度：左右两家朝各自座位倾斜。
   final double angle;
 
+  /// 该家座位（AI 为头像、人类玩家为手牌）相对牌桌的坐标（0..1）。
+  final Offset? seat;
+
   @override
   bool operator ==(Object other) =>
-      other is PileTarget &&
+      other is PlayerTarget &&
       other.center == center &&
       other.cardSize == cardSize &&
       other.maxWidth == maxWidth &&
-      other.angle == angle;
+      other.angle == angle &&
+      other.seat == seat;
 
   @override
-  int get hashCode => Object.hash(center, cardSize, maxWidth, angle);
+  int get hashCode => Object.hash(center, cardSize, maxWidth, angle, seat);
 }

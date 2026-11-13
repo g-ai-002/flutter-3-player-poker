@@ -1,4 +1,4 @@
-import 'package:flame/components.dart';
+import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_3_player_poker/game/ddz_table_game.dart';
 import 'package:flutter_3_player_poker/game/game_engine.dart';
@@ -6,12 +6,15 @@ import 'package:flutter_3_player_poker/game/play_flight.dart';
 import 'package:flutter_3_player_poker/game/table_events.dart';
 import 'package:flutter_3_player_poker/models/playing_card.dart';
 import 'package:flutter_3_player_poker/pages/game/table_area.dart';
+import 'package:flutter_3_player_poker/pages/game_page.dart';
 import 'package:flutter_3_player_poker/providers/game_provider.dart';
 import 'package:flutter_3_player_poker/providers/settings_provider.dart';
 import 'package:flutter_3_player_poker/services/storage_service.dart';
 import 'package:flutter_3_player_poker/theme/app_theme.dart';
+import 'package:flutter_3_player_poker/widgets/hand_view.dart';
 import 'package:flutter_3_player_poker/widgets/played_cards_view.dart';
 import 'package:flutter_3_player_poker/widgets/playing_card_view.dart';
+import 'package:flutter_3_player_poker/widgets/seat_panel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -60,10 +63,7 @@ void main() {
     });
 
     test('单张牌不叠放，多张牌按牌宽与可用宽度收敛间距', () {
-      expect(
-        PlayFlight.spacing(count: 1, cardWidth: 48, maxWidth: 200),
-        0,
-      );
+      expect(PlayFlight.spacing(count: 1, cardWidth: 48, maxWidth: 200), 0);
       expect(
         PlayFlight.spacing(count: 5, cardWidth: 48, maxWidth: 400),
         closeTo(48 * 0.62, 0.001),
@@ -84,8 +84,8 @@ void main() {
     await game.onLoad();
 
     const cardSize = Size(50, 70);
-    game.setPileTargets({
-      1: const PileTarget(
+    game.setTargets({
+      1: const PlayerTarget(
         center: Offset(0.8, 0.3),
         cardSize: cardSize,
         maxWidth: 208,
@@ -96,9 +96,7 @@ void main() {
       for (var i = 0; i < 12; i++)
         PlayingCard(id: i, rank: 3 + i % 12, suit: CardSuit.spade),
     ];
-    bus.emit(
-      TableEvent(type: TableEventType.play, player: 1, cards: cards),
-    );
+    bus.emit(TableEvent(type: TableEventType.play, player: 1, cards: cards));
     game.update(0.02);
 
     final flights = game.children.whereType<CardFlight>().toList();
@@ -118,6 +116,200 @@ void main() {
       closeTo(spacing * (cards.length - 1), 0.01),
       reason: '落点按出牌区的叠放间距排开',
     );
+  });
+
+  test('飞牌从座位回传的头像位置起飞', () async {
+    final bus = TableEventBus();
+    final game = DdzTableGame(bus: bus);
+    game.onGameResize(Vector2(800, 600));
+    await game.onLoad();
+
+    game.setTargets(const {
+      0: PlayerTarget(
+        center: Offset(0.5, 0.74),
+        cardSize: Size(34, 47.6),
+        maxWidth: 120,
+        seat: Offset(0.5, 0.9),
+      ),
+      1: PlayerTarget(
+        center: Offset(0.82, 0.34),
+        cardSize: Size(34, 47.6),
+        maxWidth: 120,
+        seat: Offset(0.9, 0.2),
+      ),
+      2: PlayerTarget(
+        center: Offset(0.18, 0.34),
+        cardSize: Size(34, 47.6),
+        maxWidth: 120,
+        seat: Offset(0.1, 0.2),
+      ),
+    });
+    expect(game.seatPoint(1), const Offset(720, 120), reason: '右家按头像位置换算');
+    expect(game.seatPoint(2), const Offset(80, 120), reason: '左家按头像位置换算');
+
+    bus.emit(
+      const TableEvent(
+        type: TableEventType.play,
+        player: 2,
+        cards: [PlayingCard(id: 0, rank: 3, suit: CardSuit.spade)],
+      ),
+    );
+    game.update(0.02);
+
+    final flight = game.children.whereType<CardFlight>().single;
+    expect(flight.from, const Offset(80, 120), reason: '飞牌起点就是头像');
+  });
+
+  testWidgets('牌桌回传的头像位置与实际座位一致', (tester) async {
+    final settings = await makeSettings();
+    final game = await playingGame(settings);
+    addTearDown(game.dispose);
+
+    Map<int, PlayerTarget>? targets;
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildLightTheme(),
+        home: MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: settings),
+            ChangeNotifierProvider.value(value: game),
+          ],
+          child: Scaffold(
+            body: GameTableArea(
+              provider: game,
+              landscape: false,
+              onTargets: (value) => targets = value,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(targets, isNotNull);
+    // 两家 AI 的头像里写着名字首字，头像圆心就是回传的座位点。
+    final right = tester.getRect(find.text('小'));
+    final left = tester.getRect(find.text('阿'));
+    expect(targets![1]!.seat!.dx * 1200, closeTo(right.center.dx, 1));
+    expect(targets![1]!.seat!.dy * 800, closeTo(right.center.dy, 1));
+    expect(targets![2]!.seat!.dx * 1200, closeTo(left.center.dx, 1));
+    expect(targets![2]!.seat!.dy * 800, closeTo(left.center.dy, 1));
+
+    game.stop();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('人类玩家的飞牌起点在手牌上方居中', (tester) async {
+    final settings = await makeSettings();
+    final game = await playingGame(settings);
+    addTearDown(game.dispose);
+
+    final handKey = GlobalKey();
+    Map<int, PlayerTarget>? targets;
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildLightTheme(),
+        home: MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: settings),
+            ChangeNotifierProvider.value(value: game),
+          ],
+          child: Scaffold(
+            body: Column(
+              children: [
+                Expanded(
+                  child: GameTableArea(
+                    provider: game,
+                    landscape: false,
+                    humanAnchor: handKey,
+                    onTargets: (value) => targets = value,
+                  ),
+                ),
+                KeyedSubtree(
+                  key: handKey,
+                  child: const SizedBox(height: 80, width: double.infinity),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(targets, isNotNull);
+    expect(targets![0]!.seat!.dx, closeTo(0.5, 0.01), reason: '手牌居中');
+    expect(
+      targets![0]!.seat!.dy * 600,
+      closeTo(520, 1),
+      reason: '起点在手牌上沿，而不是屏幕底部',
+    );
+
+    game.stop();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('牌桌页的飞牌从真实头像与手牌起飞', (tester) async {
+    final settings = await makeSettings();
+    final game = await playingGame(settings);
+    addTearDown(game.dispose);
+
+    tester.view.physicalSize = const Size(780, 360);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(wrapApp(const GamePage(), game));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final table =
+        tester
+                .widget<GameWidget>(
+                  find.byWidgetPredicate((widget) => widget is GameWidget),
+                )
+                .game
+            as DdzTableGame;
+    const card = PlayingCard(id: 900, rank: 5, suit: CardSuit.heart);
+
+    // 右家出牌：起点是座位上的头像。
+    const aiCard = PlayingCard(id: 901, rank: 6, suit: CardSuit.heart);
+    game.events.emit(
+      const TableEvent(type: TableEventType.play, player: 1, cards: [aiCard]),
+    );
+    await tester.pump(const Duration(milliseconds: 34));
+    final aiFlight = table.children.whereType<CardFlight>().firstWhere(
+      (flight) => flight.card?.id == aiCard.id,
+    );
+    final rightSeat = find.byType(SeatPanel).at(1);
+    final avatar = tester.getRect(
+      find.descendant(of: rightSeat, matching: find.text('小')),
+    );
+    expect(aiFlight.from.dx, closeTo(avatar.center.dx, 1.5));
+    expect(aiFlight.from.dy, closeTo(avatar.center.dy, 1.5));
+
+    // 玩家出牌：玩家自己没有头像，起点在手牌上沿。
+    game.events.emit(
+      const TableEvent(type: TableEventType.play, player: 0, cards: [card]),
+    );
+    await tester.pump(const Duration(milliseconds: 34));
+    final humanFlight = table.children.whereType<CardFlight>().firstWhere(
+      (flight) => flight.card?.id == card.id,
+    );
+    final hand = tester.getRect(find.byType(HandView));
+    expect(humanFlight.from.dx, closeTo(hand.center.dx, 1.5));
+    expect(
+      humanFlight.from.dy,
+      closeTo(hand.top, 3),
+      reason: '起点在手牌上沿（含手牌区 2 像素内边距）',
+    );
+
+    game.stop();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
   });
 
   testWidgets('出牌后牌堆等飞牌落定才亮出', (tester) async {
@@ -147,7 +339,7 @@ void main() {
         PlayingCard(id: 100 + i, rank: 4 + i, suit: CardSuit.heart),
     ];
 
-    Map<int, PileTarget>? targets;
+    Map<int, PlayerTarget>? targets;
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
     await tester.pumpWidget(
@@ -162,7 +354,7 @@ void main() {
             body: GameTableArea(
               provider: game,
               landscape: false,
-              onPileTargets: (value) => targets = value,
+              onTargets: (value) => targets = value,
             ),
           ),
         ),
@@ -210,7 +402,7 @@ void main() {
     final game = await playingGame(settings);
     addTearDown(game.dispose);
 
-    Map<int, PileTarget>? targets;
+    Map<int, PlayerTarget>? targets;
     tester.view.physicalSize = const Size(2400, 1600);
     tester.view.devicePixelRatio = 2;
     await tester.pumpWidget(
@@ -219,7 +411,7 @@ void main() {
           body: GameTableArea(
             provider: game,
             landscape: false,
-            onPileTargets: (value) => targets = value,
+            onTargets: (value) => targets = value,
           ),
         ),
         game,

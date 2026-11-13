@@ -72,7 +72,8 @@ class GameTableArea extends StatefulWidget {
     required this.landscape,
     this.compact = false,
     this.topInset = 0,
-    this.onPileTargets,
+    this.onTargets,
+    this.humanAnchor,
   });
 
   final GameProvider provider;
@@ -82,8 +83,11 @@ class GameTableArea extends StatefulWidget {
   /// 网格上方要让给悬浮提示带的高度：提示带不参与牌桌页布局，但网格不压提示。
   final double topInset;
 
-  /// 三家出牌区的几何（0 玩家、1 右侧、2 左侧）。
-  final ValueChanged<Map<int, PileTarget>>? onPileTargets;
+  /// 三家出牌区与座位的几何。
+  final ValueChanged<Map<int, PlayerTarget>>? onTargets;
+
+  /// 人类玩家的手牌定位键：玩家自己没有头像，飞牌从手牌上方起飞。
+  final GlobalKey? humanAnchor;
 
   /// 竖屏座位条高度：悬浮提示层据此避开左右座位。
   static double portraitSeatHeight({bool compact = false}) =>
@@ -98,32 +102,36 @@ class _GameTableAreaState extends State<GameTableArea> {
     for (final id in const [0, 1, 2]) id: GlobalKey(),
   };
 
+  /// 两家 AI 的头像定位键；人类玩家没有头像，用 [GameTableArea.humanAnchor]。
+  final Map<int, GlobalKey> _avatarKeys = {
+    for (final id in const [1, 2]) id: GlobalKey(),
+  };
+
   /// 牌桌网格的宽度与牌面宽度：出牌区几何据此估算可用叠放空间。
   double _stageWidth = 0;
   double _stageCardWidth = 0;
 
   /// 同一帧内的多次重建只回传一次几何，避免重复的布局查询。
   bool _reportScheduled = false;
-  Map<int, PileTarget>? _lastTargets;
+  Map<int, PlayerTarget>? _lastTargets;
 
   void _scheduleReport() {
     if (_reportScheduled) return;
     _reportScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _reportScheduled = false;
-      _reportPileTargets();
+      _reportGeometry();
     });
   }
 
-  /// 把三处出牌区的牌堆中心、实际牌面尺寸与倾斜角度回传给牌桌页。
+  /// 把三家出牌区与座位的几何回传给牌桌页。
   ///
-  /// 几何没变时直接跳过，选牌、快门等与牌堆无关的重建不再重复写回牌桌层。
-  void _reportPileTargets() {
+  /// 几何没变时直接跳过，选牌、快门等与几何无关的重建不再重复写回牌桌层。
+  void _reportGeometry() {
     if (!mounted) return;
-    final callback = widget.onPileTargets;
     final screen = MediaQuery.sizeOf(context);
-    if (callback == null || _stageCardWidth <= 0 || screen.isEmpty) return;
-    final targets = <int, PileTarget>{};
+    if (_stageCardWidth <= 0 || screen.isEmpty) return;
+    final targets = <int, PlayerTarget>{};
     for (final entry in _pileKeys.entries) {
       final render = entry.value.currentContext?.findRenderObject();
       if (render is! RenderBox || !render.hasSize || !render.attached) return;
@@ -135,7 +143,7 @@ class _GameTableAreaState extends State<GameTableArea> {
       );
       final center = render.localToGlobal(local);
       final cardWidth = _stageCardWidth * scale;
-      targets[entry.key] = PileTarget(
+      targets[entry.key] = PlayerTarget(
         center: Offset(center.dx / screen.width, center.dy / screen.height),
         cardSize: Size(cardWidth, cardWidth * PlayFlight.cardAspect),
         maxWidth: _pileMaxWidth(entry.key),
@@ -144,12 +152,31 @@ class _GameTableAreaState extends State<GameTableArea> {
           1 => _tilt,
           _ => 0,
         },
+        seat: _seatPoint(entry.key, screen),
       );
     }
     final previous = _lastTargets;
     if (previous != null && mapEquals(previous, targets)) return;
     _lastTargets = targets;
-    callback(targets);
+    widget.onTargets?.call(targets);
+  }
+
+  /// 座位起点：两家 AI 取头像中心，人类玩家取手牌上沿中点。
+  ///
+  /// 飞牌动画以前用经验坐标估算座位，横屏紧凑座位与大屏下会明显偏离头像。
+  Offset? _seatPoint(int player, Size screen) {
+    final render = (player == 0 ? widget.humanAnchor : _avatarKeys[player])
+        ?.currentContext
+        ?.findRenderObject();
+    if (render is! RenderBox || !render.hasSize || render.size.isEmpty) {
+      return null;
+    }
+    final point = render.localToGlobal(
+      player == 0
+          ? Offset(render.size.width / 2, 0)
+          : render.size.center(Offset.zero),
+    );
+    return Offset(point.dx / screen.width, point.dy / screen.height);
   }
 
   /// 出牌区叠放可用的横向宽度：与 [_stage] 里的牌堆槽位一致。
@@ -199,6 +226,7 @@ class _GameTableAreaState extends State<GameTableArea> {
       revealed: revealed,
       countdown: provider.turnSecondsLeft,
       compact: widget.compact,
+      avatarKey: _avatarKeys[player.id],
       onTap: revealed ? () => _showRevealedHand(context, player) : null,
     );
   }

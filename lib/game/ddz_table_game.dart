@@ -63,18 +63,21 @@ class DdzTableGame extends FlameGame {
     super.detach();
   }
 
-  /// 三家出牌区的几何，由 Flutter 布局回传；未回传前使用经验位置。
-  final Map<int, PileTarget> _pileTargets = {};
+  /// 三家在牌桌上的几何，由 Flutter 布局回传；未回传前使用经验位置。
+  final Map<int, PlayerTarget> _targets = {};
 
   /// 几何没变时不重复回传，避免每帧刷新时做无意义的布局查询与分配。
-  void setPileTargets(Map<int, PileTarget> targets) {
-    if (mapEquals(_pileTargets, targets)) return;
-    _pileTargets
+  void setTargets(Map<int, PlayerTarget> targets) {
+    if (mapEquals(_targets, targets)) return;
+    _targets
       ..clear()
       ..addAll(targets);
   }
 
+  /// 起飞点：优先使用座位回传的头像（人类玩家为手牌）位置。
   Offset seatPoint(int player) {
+    final seat = _targets[player]?.seat;
+    if (seat != null) return Offset(seat.dx * size.x, seat.dy * size.y);
     return switch (player) {
       1 => Offset(size.x * 0.86, size.y * 0.26),
       2 => Offset(size.x * 0.14, size.y * 0.26),
@@ -84,7 +87,7 @@ class DdzTableGame extends FlameGame {
 
   /// 飞牌落点：优先使用布局回传的真实出牌区中心。
   Offset pilePoint(int player) {
-    final target = _pileTargets[player];
+    final target = _targets[player];
     if (target != null) {
       return Offset(target.center.dx * size.x, target.center.dy * size.y);
     }
@@ -126,7 +129,7 @@ class DdzTableGame extends FlameGame {
   void _playCards(TableEvent event) {
     final cards = event.cards;
     if (cards.isEmpty) return;
-    final target = _pileTargets[event.player];
+    final target = _targets[event.player];
     final cardSize = target?.cardSize ?? const Size(34, 47.6);
     final spacing = PlayFlight.spacing(
       count: cards.length,
