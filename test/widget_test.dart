@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_3_player_poker/models/hand_record.dart';
 import 'package:flutter_3_player_poker/models/playing_card.dart';
@@ -22,6 +21,7 @@ import 'package:flutter_3_player_poker/theme/app_theme.dart';
 import 'package:flutter_3_player_poker/widgets/played_cards_view.dart';
 import 'package:flutter_3_player_poker/widgets/seat_panel.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

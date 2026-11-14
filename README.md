@@ -124,7 +124,7 @@
 
 ### 环境要求
 
-- Flutter 3.47.9+（Dart 3.13.7+）
+- Flutter 3.50.0+（Dart 3.14.0+）
 - Android SDK 37（minSdk 35 / targetSdk 37 / compileSdk 37）
 - Windows 10+
 

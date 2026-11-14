@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 内容页通用宽度约束：大屏下居中并限制行宽，避免文字被拉得过长。
 class PageFrame extends StatelessWidget {
