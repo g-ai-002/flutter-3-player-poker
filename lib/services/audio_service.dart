@@ -31,6 +31,7 @@ class AudioService {
   Future<void>? _loading;
   Future<void>? _engineReady;
   Future<Uint8List>? _bgmLoading;
+  Future<List<Uint8List>>? _cueLoading;
   DateTime? _retryAt;
   bool _soundEnabled = true;
   bool _musicEnabled = true;
@@ -74,17 +75,8 @@ class AudioService {
     _soloud.setPause(handle, !value);
   }
 
-  /// 启动时调用：初始化音频引擎并预加载全部提示音，失败原因会写入日志。
+  /// 启动时调用：初始化音频引擎并在后台合成、预加载全部提示音。
   Future<void> initialize() => _ensureLoaded();
-
-  /// 首次进入牌桌前生成常用波形，避免第一次出牌时才合成。
-  void prewarm() {
-    for (final cue in AudioCue.values) {
-      _bytes(cue);
-    }
-    if (_blocked) return;
-    unawaited(_ensureLoaded());
-  }
 
   /// 开始循环背景音乐；静音时只记录请求，取消静音后再播放。
   void startBgm() {
@@ -168,11 +160,13 @@ class AudioService {
   Future<void> _load() async {
     try {
       await _ensureEngine();
-      for (final cue in AudioCue.values) {
-        if (_sources.containsKey(cue)) continue;
-        _sources[cue] = await _soloud.loadMem(
+      final wavs = await _cueWavs();
+      for (var i = 0; i < AudioCue.values.length; i++) {
+        final cue = AudioCue.values[i];
+        _cache[cue] = wavs[i];
+        _sources[cue] ??= await _soloud.loadMem(
           'poker-${cue.name}.wav',
-          _bytes(cue),
+          wavs[i],
         );
       }
       _retryAt = null;
@@ -182,6 +176,19 @@ class AudioService {
       _retryAt = DateTime.now().add(const Duration(seconds: 5));
       _report('音效加载失败', e, stack);
     }
+  }
+
+  /// 全部提示音波形：原生端一次 [compute] 批量合成；Web 没有 isolate，逐段让出一帧。
+  Future<List<Uint8List>> _cueWavs() {
+    return _cueLoading ??= () async {
+      if (!kIsWeb) return compute(_buildAllCues, null);
+      final wavs = <Uint8List>[];
+      for (final cue in AudioCue.values) {
+        wavs.add(buildCueWav(cue));
+        await Future<void>.delayed(Duration.zero);
+      }
+      return wavs;
+    }().whenComplete(() => _cueLoading = null);
   }
 
   Future<AudioSource?> _ensureBgmSource() async {
@@ -208,142 +215,14 @@ class AudioService {
     }().whenComplete(() => _bgmLoading = null);
   }
 
-  Uint8List _bytes(AudioCue cue) {
-    return _cache.putIfAbsent(cue, () => _generate(cue));
-  }
-
   /// 测试用：检查合成出的 WAV 头与波形长度。
   @visibleForTesting
-  Uint8List debugWav(AudioCue cue) => _bytes(cue);
+  Uint8List debugWav(AudioCue cue) =>
+      _cache.putIfAbsent(cue, () => buildCueWav(cue));
 
   /// 测试用：检查背景音乐循环的长度与格式。
   @visibleForTesting
   Uint8List debugBgmWav() => _bgmBytes ??= buildBgmLoopWav();
-
-  Uint8List _generate(AudioCue cue) {
-    switch (cue) {
-      case AudioCue.deal:
-        return _mix([
-          _wave(520, 70, gain: 0.32, decay: 2.2),
-          _wave(660, 80, gain: 0.28, decay: 2.2, delayMs: 65),
-          _wave(820, 90, gain: 0.26, decay: 2.2, delayMs: 130),
-        ]);
-      case AudioCue.play:
-        // 出牌：纸牌拍在桌面上的一声清脆响，混入少量噪声更接近材质声。
-        return _mix([
-          _wave(760, 120, gain: 0.42, decay: 2.4),
-          _noise(80, gain: 0.22),
-        ]);
-      case AudioCue.pass:
-        return _wave(320, 170, gain: 0.32);
-      case AudioCue.bomb:
-        return _mix([
-          _wave(90, 380, gain: 0.5, decay: 1.4),
-          _noise(320, gain: 0.38),
-        ]);
-      case AudioCue.bid:
-        return _mix([
-          _wave(560, 110),
-          _wave(840, 150, gain: 0.26, delayMs: 90),
-        ]);
-      case AudioCue.double:
-        return _mix([
-          _wave(392, 110, gain: 0.26),
-          _wave(523, 110, gain: 0.26, delayMs: 80),
-          _wave(784, 180, gain: 0.28, delayMs: 160),
-        ]);
-      case AudioCue.reveal:
-        return _mix([
-          for (var i = 0; i < 4; i++)
-            _wave(
-              660 * pow(1.25, i).toDouble(),
-              220,
-              gain: 0.16,
-              delayMs: i * 55,
-            ),
-        ]);
-      case AudioCue.win:
-        return _mix([
-          _wave(523, 130),
-          _wave(659, 130, delayMs: 120),
-          _wave(784, 150, delayMs: 240),
-          _wave(1047, 260, gain: 0.24, delayMs: 380),
-        ]);
-      case AudioCue.lose:
-        return _mix([
-          _wave(392, 160, gain: 0.26),
-          _wave(330, 160, gain: 0.26, delayMs: 150),
-          _wave(262, 320, gain: 0.24, delayMs: 300),
-        ]);
-    }
-  }
-
-  Uint8List _wave(
-    double freq,
-    int ms, {
-    double gain = 0.3,
-    double decay = 1.8,
-    int delayMs = 0,
-  }) {
-    const rate = 22050;
-    final samples = rate * ms ~/ 1000;
-    final delay = rate * delayMs ~/ 1000;
-    return _buildWav(rate, samples + delay, (i) {
-      if (i < delay) return 0;
-      final t = (i - delay) / rate;
-      final envelope = pow(1 - (i - delay) / samples, decay).toDouble();
-      return sin(2 * pi * freq * t) * envelope * gain;
-    });
-  }
-
-  Uint8List _noise(int ms, {double gain = 0.2}) {
-    const rate = 22050;
-    final samples = rate * ms ~/ 1000;
-    final random = Random(11);
-    return _buildWav(rate, samples, (i) {
-      final envelope = pow(1 - i / samples, 2).toDouble();
-      final tone = sin(2 * pi * 70 * i / rate);
-      return (random.nextDouble() * 2 - 1 + tone) * 0.5 * envelope * gain;
-    });
-  }
-
-  /// 把多段波形叠加成一条音轨，长度取最长的一段。
-  Uint8List _mix(List<Uint8List> parts) {
-    if (parts.length == 1) return parts.first;
-    final decoded = parts.map(_samplesOf).toList();
-    final length = decoded.map((samples) => samples.length).reduce(max);
-    return _buildWav(22050, length, (i) {
-      var sum = 0.0;
-      for (final samples in decoded) {
-        if (i < samples.length) sum += samples[i];
-      }
-      return sum.clamp(-0.95, 0.95);
-    });
-  }
-
-  Float64List _samplesOf(Uint8List wav) {
-    final data = ByteData.sublistView(wav);
-    final count = (wav.length - 44) ~/ 2;
-    final samples = Float64List(count);
-    for (var i = 0; i < count; i++) {
-      samples[i] = data.getInt16(44 + i * 2, Endian.little) / 32767;
-    }
-    return samples;
-  }
-
-  void _disposeSources(List<AudioSource> sources) {
-    for (final source in sources) {
-      unawaited(_disposeSource(source));
-    }
-  }
-
-  Future<void> _disposeSource(AudioSource source) async {
-    try {
-      await _soloud.disposeSource(source);
-    } catch (e) {
-      _report('音频释放失败', e);
-    }
-  }
 
   void _ignore(Future<void> future) {
     unawaited(future.catchError((Object e) => _report('音频操作失败', e)));
@@ -354,16 +233,120 @@ class AudioService {
     if (!_reported.add('$message|$error')) return;
     LogService.error('$message: $error', error, stack);
   }
+}
 
-  void dispose() {
-    final sources = [..._sources.values, ?_bgmSource];
-    _sources.clear();
-    _bgmSource = null;
-    _bgmHandle = null;
-    _bgmRequested = false;
-    if (_blocked) return;
-    _disposeSources(sources);
+/// 一次合成全部提示音：作为 [compute] 的入口，整个批次只做一次 isolate 往返。
+List<Uint8List> _buildAllCues([Object? _]) => [
+  for (final cue in AudioCue.values) buildCueWav(cue),
+];
+
+/// 单段提示音波形；纯计算、不触碰播放器状态，可安全放到后台 isolate。
+Uint8List buildCueWav(AudioCue cue) {
+  switch (cue) {
+    case AudioCue.deal:
+      return _mix([
+        _wave(520, 70, gain: 0.32, decay: 2.2),
+        _wave(660, 80, gain: 0.28, decay: 2.2, delayMs: 65),
+        _wave(820, 90, gain: 0.26, decay: 2.2, delayMs: 130),
+      ]);
+    case AudioCue.play:
+      // 出牌：纸牌拍在桌面上的一声清脆响，混入少量噪声更接近材质声。
+      return _mix([
+        _wave(760, 120, gain: 0.42, decay: 2.4),
+        _noise(80, gain: 0.22),
+      ]);
+    case AudioCue.pass:
+      return _wave(320, 170, gain: 0.32);
+    case AudioCue.bomb:
+      return _mix([
+        _wave(90, 380, gain: 0.5, decay: 1.4),
+        _noise(320, gain: 0.38),
+      ]);
+    case AudioCue.bid:
+      return _mix([_wave(560, 110), _wave(840, 150, gain: 0.26, delayMs: 90)]);
+    case AudioCue.double:
+      return _mix([
+        _wave(392, 110, gain: 0.26),
+        _wave(523, 110, gain: 0.26, delayMs: 80),
+        _wave(784, 180, gain: 0.28, delayMs: 160),
+      ]);
+    case AudioCue.reveal:
+      return _mix([
+        for (var i = 0; i < 4; i++)
+          _wave(
+            660 * pow(1.25, i).toDouble(),
+            220,
+            gain: 0.16,
+            delayMs: i * 55,
+          ),
+      ]);
+    case AudioCue.win:
+      return _mix([
+        _wave(523, 130),
+        _wave(659, 130, delayMs: 120),
+        _wave(784, 150, delayMs: 240),
+        _wave(1047, 260, gain: 0.24, delayMs: 380),
+      ]);
+    case AudioCue.lose:
+      return _mix([
+        _wave(392, 160, gain: 0.26),
+        _wave(330, 160, gain: 0.26, delayMs: 150),
+        _wave(262, 320, gain: 0.24, delayMs: 300),
+      ]);
   }
+}
+
+Uint8List _wave(
+  double freq,
+  int ms, {
+  double gain = 0.3,
+  double decay = 1.8,
+  int delayMs = 0,
+}) {
+  const rate = 22050;
+  final samples = rate * ms ~/ 1000;
+  final delay = rate * delayMs ~/ 1000;
+  return _buildWav(rate, samples + delay, (i) {
+    if (i < delay) return 0;
+    final t = (i - delay) / rate;
+    final envelope = pow(1 - (i - delay) / samples, decay).toDouble();
+    return sin(2 * pi * freq * t) * envelope * gain;
+  });
+}
+
+Uint8List _noise(int ms, {double gain = 0.2}) {
+  const rate = 22050;
+  final samples = rate * ms ~/ 1000;
+  final random = Random(11);
+  return _buildWav(rate, samples, (i) {
+    final envelope = pow(1 - i / samples, 2).toDouble();
+    final tone = sin(2 * pi * 70 * i / rate);
+    return (random.nextDouble() * 2 - 1 + tone) * 0.5 * envelope * gain;
+  });
+}
+
+/// 把多段波形叠加成一条音轨，长度取最长的一段。
+Uint8List _mix(List<Uint8List> parts) {
+  if (parts.length == 1) return parts.first;
+  final decoded = parts.map(_samplesOf).toList();
+  final length = decoded.map((samples) => samples.length).reduce(max);
+  return _buildWav(22050, length, (i) {
+    var sum = 0.0;
+    for (final samples in decoded) {
+      if (i < samples.length) sum += samples[i];
+    }
+    return sum.clamp(-0.95, 0.95);
+  });
+}
+
+Float64List _samplesOf(Uint8List wav) {
+  final data = ByteData.sublistView(wav);
+  final count = (wav.length - 44) ~/ 2;
+  final samples = Float64List(count);
+  for (var i = 0; i < count; i++) {
+    samples[i] = data.getInt16(44 + i * 2, Endian.little) / 32767;
+  }
+  return samples;
 }
 
 /// 按 16bit 单声道 PCM 拼出 WAV 容器；纯计算，不依赖播放器与实例状态。

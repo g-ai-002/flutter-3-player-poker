@@ -253,6 +253,47 @@ void main() {
     });
   });
 
+  group('音效合成移出 UI 线程', () {
+    test('单段波形可直接交给后台 isolate 合成', () async {
+      for (final cue in AudioCue.values) {
+        final sync = buildCueWav(cue);
+        final background = await compute(buildCueWav, cue);
+
+        expect(String.fromCharCodes(background.sublist(0, 4)), 'RIFF');
+        expect(background.length, sync.length, reason: '$cue 波形长度一致');
+        expect(background, sync, reason: '$cue 与同步合成的波形逐字节一致');
+      }
+    });
+
+    test('测试环境初始化音频仍然可用', () async {
+      await AudioService.instance.initialize();
+      AudioService.instance.play(AudioCue.play);
+      expect(AudioService.instance.debugWav(AudioCue.play), isNotEmpty);
+    });
+  });
+
+  group('提示层通知合并', () {
+    test('选牌与临时反馈共用一条通知源', () async {
+      final settings = await makeSettings();
+      final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+      addTearDown(game.dispose);
+      game.newGame();
+      takeLandlord(game);
+
+      expect(identical(game.hintSignals, game.hintSignals), isTrue);
+      var hits = 0;
+      game.hintSignals.addListener(() => hits++);
+
+      game.toggleCard(game.humanHand.first.id);
+      expect(hits, 1, reason: '选牌刷新提示层');
+
+      game.hint();
+      expect(hits, 3, reason: '提示同时改写选牌与理由，走同一条通知源');
+
+      game.stop();
+    });
+  });
+
   group('牌桌空闲暂停', () {
     test('没有动画时暂停渲染循环，新动画事件到达后恢复', () async {
       final bus = TableEventBus();
