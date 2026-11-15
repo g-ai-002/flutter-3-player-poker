@@ -98,6 +98,10 @@ class GameProvider extends ChangeNotifier {
 
   /// 临时反馈：只有提示层订阅，浮现与消失不再重建整张牌桌页。
   ValueListenable<String?> get feedbackListenable => _feedback;
+
+  /// 提示层的通知源：选牌与临时反馈只合并一次，构建时不再重复合并与重新订阅。
+  late final Listenable hintSignals = Listenable.merge([_selection, _feedback]);
+
   GamePhase get phase => engine.phase;
   bool get humanIsLandlord => engine.players[0].isLandlord;
   bool get isHumanTurn => engine.isHumanTurn;
@@ -164,7 +168,7 @@ class GameProvider extends ChangeNotifier {
     recorder.start(engine);
     if (!_audioReady) {
       _audioReady = true;
-      AudioService.instance.prewarm();
+      unawaited(AudioService.instance.initialize());
     }
     AudioService.instance
       ..startBgm()
