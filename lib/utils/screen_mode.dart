@@ -43,7 +43,7 @@ bool? tableOrientationLock(Size viewport) {
   return prefersLandscape(viewport);
 }
 
-/// 手机进入牌桌时按网格比例决定横屏还是竖屏，退出时恢复系统方向与状态栏。
+/// 手机进入牌桌时按网格比例决定横屏还是竖屏，退出时恢复系统方向与首页沉浸。
 ///
 /// 只在 Android 手机上生效：折叠屏与平板屏幕够宽，保留系统当前的旋转与分屏体验。
 Future<void> enterGameFullscreen() async {
@@ -75,7 +75,7 @@ Future<void> exitGameFullscreen() async {
   if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
   try {
     await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   } catch (error) {
     debugPrint('恢复屏幕方向失败: $error');
   }

@@ -80,6 +80,49 @@ void main() {
     tester.view.resetDevicePixelRatio();
   });
 
+  testWidgets('主页铺满整个屏幕且内容居中', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 0);
+    addTearDown(game.dispose);
+
+    for (final size in const [Size(390, 844), Size(1180, 780)]) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(
+        wrapApp(const HomePage(), settings: settings, game: game),
+      );
+      await tester.pump();
+
+      expect(
+        tester.getSize(find.byType(Scaffold)),
+        size,
+        reason: '首页背景应铺满全屏: $size',
+      );
+      if (size.width < 900) {
+        expect(
+          tester
+              .getRect(find.widgetWithText(FilledButton, '开始对局'))
+              .center
+              .dx,
+          closeTo(size.width / 2, 1),
+          reason: '入口水平居中: $size',
+        );
+        if (size.height >= 780) {
+          final top = tester.getRect(find.text('本地单机')).top;
+          final bottom = tester.getRect(find.textContaining('无需联网')).bottom;
+          expect(
+            (top + bottom) / 2,
+            closeTo(size.height / 2 - 6, 12),
+            reason: '单列内容整体垂直居中: $size',
+          );
+        }
+      }
+    }
+
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
   testWidgets('主页在手机横屏无需滚动即可开局', (tester) async {
     final settings = await makeSettings();
     final game = GameProvider(settings: settings, aiDelayOverride: 0);

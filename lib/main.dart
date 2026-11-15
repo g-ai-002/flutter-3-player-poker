@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cupertino_ui/cupertino_ui.dart' show GlobalCupertinoLocalizations;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show SystemChrome, SystemUiMode;
 import 'package:flutter_localizations/flutter_localizations.dart' show GlobalWidgetsLocalizations;
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -24,11 +25,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await setupDesktopWindow();
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
 
   final storage = await StorageService.instance;
   await initLogging();
-  await StatsService.instance.load();
-  await HandHistoryService.instance.load();
+  await Future.wait([StatsService.instance.load(), HandHistoryService.instance.load()]);
   LogService.info('应用启动: ${AppConstants.appName} v${AppConstants.version}');
 
   FlutterError.onError = (details) {
