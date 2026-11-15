@@ -98,6 +98,12 @@ void main() {
         size,
         reason: '首页背景应铺满全屏: $size',
       );
+      // 沉浸式全屏下背景要盖住整块屏幕，不能只铺在安全区内。
+      expect(
+        tester.getRect(find.byKey(const ValueKey('home-backdrop'))),
+        Offset.zero & size,
+        reason: '背景容器与屏幕等大: $size',
+      );
       if (size.width < 900) {
         expect(
           tester
@@ -121,6 +127,41 @@ void main() {
 
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
+  });
+
+  testWidgets('首页内容避开系统栏，背景仍然铺满全屏', (tester) async {
+    final settings = await makeSettings();
+    final game = GameProvider(settings: settings, aiDelayOverride: 0);
+    addTearDown(game.dispose);
+
+    const size = Size(390, 844);
+    tester.view.physicalSize = size;
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 48);
+    addTearDown(() {
+      tester.view.resetPadding();
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      wrapApp(const HomePage(), settings: settings, game: game),
+    );
+    await tester.pump();
+
+    expect(
+      tester.getRect(find.byKey(const ValueKey('home-backdrop'))),
+      Offset.zero & size,
+      reason: '系统栏区域也要由首页背景覆盖',
+    );
+    final start = tester.getRect(find.widgetWithText(FilledButton, '开始对局'));
+    expect(start.center.dx, closeTo(size.width / 2, 1), reason: '水平居中');
+    expect(
+      start.bottom,
+      lessThan(size.height - 48),
+      reason: '内容不压到导航栏',
+    );
+    expect(start.top, greaterThan(24), reason: '内容不压到状态栏');
   });
 
   testWidgets('主页在手机横屏无需滚动即可开局', (tester) async {

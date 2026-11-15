@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'system_ui.dart';
+
 /// 牌桌网格的设计宽高比：三家出牌区横向排开，横向空间直接决定牌面大小。
 const double tableGridAspect = 2.2;
 
@@ -65,7 +67,7 @@ Future<void> enterGameFullscreen() async {
               DeviceOrientation.portraitDown,
             ],
     );
-    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    await keepImmersiveFullscreen();
   } catch (error) {
     debugPrint('进入全屏失败: $error');
   }
@@ -75,7 +77,7 @@ Future<void> exitGameFullscreen() async {
   if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
   try {
     await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    await keepImmersiveFullscreen();
   } catch (error) {
     debugPrint('恢复屏幕方向失败: $error');
   }

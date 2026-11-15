@@ -55,6 +55,7 @@ class HomePage extends StatelessWidget {
     final dark = settings.darkMode;
     return Scaffold(
       body: Container(
+        key: const ValueKey('home-backdrop'),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,

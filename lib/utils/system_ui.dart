@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -17,6 +18,27 @@ SystemUiOverlayStyle systemOverlayStyleFor(Color background) {
     systemNavigationBarDividerColor: Colors.transparent,
     systemNavigationBarIconBrightness: iconBrightness,
   );
+}
+
+/// 请求沉浸式全屏（仅 Android 生效）：启动、进出牌桌与回到前台各调用一次。
+Future<void> keepImmersiveFullscreen() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+  try {
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  } catch (error) {
+    debugPrint('沉浸式全屏失败: $error');
+  }
+}
+
+/// 注册前台化监听：部分机型切回前台会重新显示系统栏，这里补一次沉浸请求。
+void keepFullscreenOnResume() =>
+    WidgetsBinding.instance.addObserver(_FullscreenKeeper());
+
+class _FullscreenKeeper with WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) keepImmersiveFullscreen();
+  }
 }
 
 /// 按当前主题的页面底色设置系统栏样式，随深浅色模式切换。
