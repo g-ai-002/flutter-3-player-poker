@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:flutter_3_player_poker/game/card_counter.dart';
 import 'package:flutter_3_player_poker/game/game_engine.dart';
-import 'package:flutter_3_player_poker/widgets/card_counter_panel.dart';
+import 'package:flutter_3_player_poker/widgets/card_counter_overlay.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -71,9 +71,12 @@ void main() {
 
   testWidgets('记牌器面板只展示还有剩余的牌', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: Scaffold(
-          body: CardCounterPanel(counts: {3: 4, 11: 2, 15: 1, 17: 0}),
+          body: CardCounterOverlay(
+            counts: const {3: 4, 11: 2, 15: 1, 17: 0},
+            onClose: () {},
+          ),
         ),
       ),
     );
