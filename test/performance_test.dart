@@ -1,9 +1,11 @@
 import 'dart:ui' as ui;
 
+import 'package:flame/components.dart' show Vector2;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_3_player_poker/game/ddz_table_game.dart';
 import 'package:flutter_3_player_poker/game/game_engine.dart';
 import 'package:flutter_3_player_poker/game/play_flight.dart';
+import 'package:flutter_3_player_poker/game/table_events.dart';
 import 'package:flutter_3_player_poker/models/playing_card.dart';
 import 'package:flutter_3_player_poker/pages/game/table_area.dart';
 import 'package:flutter_3_player_poker/providers/game_provider.dart';
@@ -78,6 +80,26 @@ void main() {
       game.setSelection(const []);
       expect(selectionEvents, 2);
       expect(pageRebuilds, 0);
+
+      game.stop();
+    });
+
+    test('提示反馈只刷新提示层，不重建整张牌桌页', () async {
+      final settings = await makeSettings();
+      final game = GameProvider(settings: settings, aiDelayOverride: 600000);
+      addTearDown(game.dispose);
+      game.newGame();
+      takeLandlord(game);
+
+      var pageRebuilds = 0;
+      var feedbackEvents = 0;
+      game.addListener(() => pageRebuilds++);
+      game.feedbackListenable.addListener(() => feedbackEvents++);
+
+      game.hint();
+
+      expect(feedbackEvents, greaterThan(0), reason: '提示理由走反馈通知');
+      expect(pageRebuilds, 0, reason: '临时反馈不应重建整张牌桌页');
 
       game.stop();
     });
@@ -228,6 +250,27 @@ void main() {
       expect(reports, 1, reason: '几何没变时跳过布局回传');
 
       game.stop();
+    });
+  });
+
+  group('牌桌空闲暂停', () {
+    test('没有动画时暂停渲染循环，新动画事件到达后恢复', () async {
+      final bus = TableEventBus();
+      final game = DdzTableGame(bus: bus, logicHz: 120);
+      game.onGameResize(Vector2(400, 300));
+      await game.onLoad();
+
+      game.update(0.016);
+      expect(game.paused, isTrue, reason: '静止牌桌不应继续每帧渲染');
+
+      bus.emit(const TableEvent(type: TableEventType.deal));
+      expect(game.paused, isFalse, reason: '发牌事件应恢复渲染循环');
+
+      for (final flight in game.children.whereType<CardFlight>().toList()) {
+        flight.removeFromParent();
+      }
+      game.update(0.02);
+      expect(game.paused, isTrue, reason: '动画播完后重新暂停');
     });
   });
 }

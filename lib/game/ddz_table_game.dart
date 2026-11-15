@@ -33,13 +33,20 @@ class DdzTableGame extends FlameGame {
   @override
   Color backgroundColor() => const Color(0xFF081A11);
 
-  /// 渲染仍按屏幕刷新率进行，组件逻辑按设置的固定步长推进。
+  /// 渲染按刷新率进行，组件逻辑按固定步长推进；动画播完后暂停循环省电。
   @override
   void update(double dt) {
     final steps = _clock.advance(dt);
     for (var i = 0; i < steps; i++) {
       super.update(_clock.step);
     }
+    final animating = children.any((c) => c is CardFlight || c is BlastWave);
+    if (steps > 0 && !animating) pauseEngine();
+  }
+
+  void _launch(Component component) {
+    if (paused) resumeEngine();
+    add(component);
   }
 
   @override
@@ -51,9 +58,7 @@ class DdzTableGame extends FlameGame {
 
   bool _detached = false;
 
-  /// 牌桌页销毁时回收：退订事件总线后再交给 Flame 停止游戏循环。
-  ///
-  /// 页面关闭后对局仍可能发出事件，退订后不会再有组件被添加到一个不再渲染的场景里。
+  /// 牌桌页销毁时退订事件并停掉渲染循环，页面关闭后不再有组件被添加。
   @override
   void detach() {
     if (!_detached) {
@@ -106,8 +111,8 @@ class DdzTableGame extends FlameGame {
         _playCards(event);
       case TableEventType.blast:
         final point = pilePoint(event.player);
-        add(BlastWave(position: point));
-        add(
+        _launch(BlastWave(position: point));
+        _launch(
           BlastWave(
             position: point,
             delay: 0.12,
@@ -122,10 +127,7 @@ class DdzTableGame extends FlameGame {
     }
   }
 
-  /// 出牌动画：每张牌各飞一次，数量与本次出牌完全一致。
-  ///
-  /// 落点按出牌区的真实叠放规则排布，尺寸对齐牌桌上牌面的实际显示尺寸，
-  /// 因此取消飞行后由牌桌原位接管，不会出现缩放或位移的跳变。
+  /// 出牌动画：每张牌各飞一次，数量、尺寸与落点都对齐牌桌出牌区。
   void _playCards(TableEvent event) {
     final cards = event.cards;
     if (cards.isEmpty) return;
@@ -140,7 +142,7 @@ class DdzTableGame extends FlameGame {
     final center = pilePoint(event.player);
     final from = seatPoint(event.player);
     for (var i = 0; i < cards.length; i++) {
-      add(
+      _launch(
         CardFlight(
           card: cards[i],
           from: from,
@@ -160,7 +162,7 @@ class DdzTableGame extends FlameGame {
     const perPlayer = kIsWeb ? 3 : 5;
     for (var player = 0; player < 3; player++) {
       for (var i = 0; i < perPlayer; i++) {
-        add(
+        _launch(
           CardFlight(
             card: null,
             from: Offset(size.x * 0.5, size.y * 0.45),

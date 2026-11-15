@@ -8,13 +8,11 @@ class TableEvent {
     required this.type,
     this.player = -1,
     this.cards = const [],
-    this.text,
   });
 
   final TableEventType type;
   final int player;
   final List<PlayingCard> cards;
-  final String? text;
 }
 
 class TableEventBus {

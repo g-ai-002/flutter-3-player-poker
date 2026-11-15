@@ -54,13 +54,7 @@ class ActionAnnouncer {
     onPlay?.call(playerId, combo.cards.length);
     AudioService.instance.play(combo.isBomb ? AudioCue.bomb : AudioCue.play);
     if (combo.isBomb) {
-      events.emit(
-        TableEvent(
-          type: TableEventType.blast,
-          player: playerId,
-          text: combo.description,
-        ),
-      );
+      events.emit(TableEvent(type: TableEventType.blast, player: playerId));
     }
     final actionText =
         text ??
@@ -82,7 +76,7 @@ class ActionAnnouncer {
 
   void _emitWithText(TableEventType type, int playerId, HandActionType action) {
     final text = engine.lastMoveText;
-    events.emit(TableEvent(type: type, player: playerId, text: text));
+    events.emit(TableEvent(type: type, player: playerId));
     AudioService.instance.play(switch (type) {
       TableEventType.bid => AudioCue.bid,
       TableEventType.double => AudioCue.double,

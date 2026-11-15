@@ -74,13 +74,13 @@ class GameProvider extends ChangeNotifier {
 
   final ValueNotifier<Set<int>> _selection = ValueNotifier(const <int>{});
   final ValueNotifier<int> _turnSeconds = ValueNotifier<int>(0);
+  final ValueNotifier<String?> _feedback = ValueNotifier<String?>(null);
 
   /// 正在飞牌的三家：牌堆已排好版但先保持透明，动画落定后一起亮出。
   final Set<int> _flyingPlays = {};
   final Map<int, Timer> _flightTimers = {};
   Timer? _feedbackTimer;
   int _clockSerial = -1;
-  String? _feedback;
   bool _statsRecorded = false;
   bool _audioReady = false;
   HandRecord? _lastRecord;
@@ -94,7 +94,10 @@ class GameProvider extends ChangeNotifier {
 
   Set<int> get selectedIds => _selection.value;
   int? get thinkingPlayer => driver.thinkingPlayer;
-  String? get feedback => _feedback;
+  String? get feedback => _feedback.value;
+
+  /// 临时反馈：只有提示层订阅，浮现与消失不再重建整张牌桌页。
+  ValueListenable<String?> get feedbackListenable => _feedback;
   GamePhase get phase => engine.phase;
   bool get humanIsLandlord => engine.players[0].isLandlord;
   bool get isHumanTurn => engine.isHumanTurn;
@@ -187,7 +190,7 @@ class GameProvider extends ChangeNotifier {
   void shutdown() {
     driver.cancel();
     _feedbackTimer?.cancel();
-    _feedback = null;
+    _feedback.value = null;
     _setSelection(const {});
     _clearFlights();
     _clockSerial = -1;
@@ -202,7 +205,7 @@ class GameProvider extends ChangeNotifier {
   void _resetTurnState() {
     driver.cancel();
     _feedbackTimer?.cancel();
-    _feedback = null;
+    _feedback.value = null;
     _setSelection(const {});
     _clearFlights();
     _clockSerial = -1;
@@ -384,12 +387,8 @@ class GameProvider extends ChangeNotifier {
     Duration duration = const Duration(milliseconds: 2200),
   }) {
     _feedbackTimer?.cancel();
-    _feedback = message;
-    notifyListeners();
-    _feedbackTimer = Timer(duration, () {
-      _feedback = null;
-      notifyListeners();
-    });
+    _feedback.value = message;
+    _feedbackTimer = Timer(duration, () => _feedback.value = null);
   }
 
   /// 出牌后先收起牌堆，等飞牌动画落定再亮出，避免牌先于动画出现在桌上。
@@ -440,6 +439,7 @@ class GameProvider extends ChangeNotifier {
     _clearFlights();
     _selection.dispose();
     _turnSeconds.dispose();
+    _feedback.dispose();
     events.dispose();
     super.dispose();
   }
