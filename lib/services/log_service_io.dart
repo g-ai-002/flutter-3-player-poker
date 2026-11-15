@@ -76,9 +76,6 @@ class LogService {
     );
   }
 
-  /// 当前日志文件路径（内存模式或未初始化时为空串）
-  static String get logFilePath => _instance?._logFile?.path ?? '';
-
   static void info(String message) => _log('INFO', message);
 
   static void warning(String message) => _log('WARN', message);

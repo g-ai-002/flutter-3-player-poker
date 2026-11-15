@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:cupertino_ui/cupertino_ui.dart' show GlobalCupertinoLocalizations;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show SystemChrome, SystemUiMode;
 import 'package:flutter_localizations/flutter_localizations.dart' show GlobalWidgetsLocalizations;
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -22,17 +21,23 @@ import 'utils/system_ui.dart';
 import 'utils/window_setup.dart';
 
 Future<void> main() async {
+  final startup = Stopwatch()..start();
   WidgetsFlutterBinding.ensureInitialized();
 
   await setupDesktopWindow();
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  }
-
-  final storage = await StorageService.instance;
-  await initLogging();
-  await Future.wait([StatsService.instance.load(), HandHistoryService.instance.load()]);
-  LogService.info('应用启动: ${AppConstants.appName} v${AppConstants.version}');
+  // 首页与牌桌都是全屏沉浸的：启动第一帧就藏起系统栏，回到前台再补一次。
+  await keepImmersiveFullscreen();
+  keepFullscreenOnResume();
+  // 设置、日志、生涯统计与牌谱互不依赖，并行加载，缩短首帧等待。
+  final storageFuture = StorageService.instance;
+  await Future.wait<void>([
+    initLogging(),
+    StatsService.instance.load(),
+    HandHistoryService.instance.load(),
+  ]);
+  final storage = await storageFuture;
+  final ms = startup.elapsedMilliseconds;
+  LogService.info('应用启动: v${AppConstants.version}, 初始化 ${ms}ms');
 
   FlutterError.onError = (details) {
     LogService.error(

@@ -13,8 +13,10 @@ void main() {
     LogService.info('测试日志消息');
     LogService.warning('警告消息');
 
-    expect(LogService.logFilePath, contains('app_'));
-    final file = File(LogService.logFilePath);
+    final files = dir.listSync().whereType<File>().toList();
+    expect(files, hasLength(1), reason: '日志按天落在同一个文件');
+    final file = files.single;
+    expect(file.path, contains('app_'));
     expect(file.existsSync(), isTrue);
     final content = file.readAsStringSync();
     expect(content, contains('测试日志消息'));

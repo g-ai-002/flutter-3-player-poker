@@ -29,8 +29,6 @@ class LogService {
   }
 
   /// Web 端没有日志文件
-  static String get logFilePath => '';
-
   static void info(String message) => _write('INFO', message);
 
   static void warning(String message) => _write('WARN', message);
