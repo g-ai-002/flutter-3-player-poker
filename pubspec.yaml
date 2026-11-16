@@ -1,7 +1,7 @@
 name: flutter_3_player_poker
 description: 斗地主 - 经典三人扑克牌游戏，支持 Android、Windows 与 Web
 publish_to: 'none'
-version: 0.6.8
+version: 0.6.9
 
 environment:
   sdk: '>=3.14.0 <4.0.0'
@@ -18,7 +18,7 @@ dependencies:
   shared_preferences: 2.5.6
   path_provider: 2.1.6
   window_manager: 0.7.0
-  flutter_soloud: 5.2.3
+  flutter_soloud: 5.3.0
 
 dev_dependencies:
   flutter_test:
